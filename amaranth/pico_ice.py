@@ -1,3 +1,5 @@
+import os
+import subprocess
 from amaranth.build import *
 from amaranth.vendor.lattice_ice40 import *
 from amaranth_boards.resources import *
@@ -32,3 +34,9 @@ class PicoIcePlatform(LatticeICE40Platform):
         Connector("pmod", 1, "43 38 34 31 - - 42 36 32 28 - -"),
         Connector("pmod", 2, "27 25 21 19 - - 26 23 20 18 - -"),
     ]
+
+    def toolchain_program(self, products, name, dfu_vid="1209", dfu_pid="b1c0", dfu_alt=0):
+        dfu_util = os.environ.get("DFU_UTIL", "dfu-util")
+        dfu_args = ["-d", f"{dfu_vid}:{dfu_pid}", "-a", str(dfu_alt)]
+        with products.extract(f"{name}.bin") as bitstream_filename:
+            subprocess.check_call([dfu_util, "-D", bitstream_filename] + dfu_args)

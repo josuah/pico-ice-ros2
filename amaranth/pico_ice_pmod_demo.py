@@ -1,16 +1,14 @@
 from amaranth import *
 from amaranth.build import *
 from amaranth_boards.extensions.pmod import *
+from amaranth_boards.resources import *
 from pico_ice import PicoIcePlatform
 
-class PinBlinker(Elaboratable):
-    def __init__(self):
-        timer = Signal(unsigned(20))
-
+class PicoIcePmodDemo(Elaboratable):
     def elaborate(self):
         m = Module()
 
-        spi = platform.request("spi", 0)
+        spi = platform.request("spi", 1)
         led_r = platform.request("led_r", 0)
         led_g = platform.request("led_g", 0)
         led_b = platform.request("led_b", 0)
@@ -24,6 +22,10 @@ class PinBlinker(Elaboratable):
 if __name__ == "__main__":
     platform = PicoIcePlatform()
     platform.add_resources([
-        PmodGPIOType1Resource("gpio", 0, pmod=0),
+        SPIResource("spi", 1, clk="21", cipo="27", copi="19", cs_n="25",
+                    role="peripheral"),
     ])
-    platform.build(PinBlinker, debug_verilog=True)
+    platform.build(PicoIcePmodDemo, do_program=True)
+
+
+
