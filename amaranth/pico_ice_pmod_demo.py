@@ -5,46 +5,67 @@ from amaranth_boards.resources import *
 from pico_ice import PicoIcePlatform
 
 class SPIPeripheral(Elaboratable):
-    def __init__(self, spi):
-        self.shift_buf = Signal(8)
-        self.shift_stb = Signal(1)
+    def __init__(self, spi, size=8):
+        self.size = size
+        self.r_data = Signal(size)
+        self.r_en = Signal(1)
         self.spi = spi
 
     def elaborate(self, platform):
         m = Module()
-        m.domains += ClockDomain("spi")
-        m.d.comb += ClockSignal("spi").eq(self.spi.clk)
 
-        shift_num = Signal(3)
+        shift_num = Signal(range(0, self.size))
+        shift_num_next = Signal(shift_num.shape())
+        clk_last = Signal(1)
+        clk_edge = Signal(1)
 
-        with m.FSM(domain="spi") as fsm:
+        m.d.sync += clk_last.eq(self.spi.clk)
+        m.d.comb += clk_edge.eq((clk_last != self.spi.clk) & self.spi.clk)
 
-            with m.State("START"):
-                m.d.spi += self.shift_buf[0].eq(self.spi.copi)
-                m.d.spi += shift_num.eq(7)
-                m.next = "RX"
+        with m.If(self.spi.cs):
+            with m.If(clk_edge):
 
-            with m.State("RX"):
-                m.d.spi += self.shift_buf.eq(Cat(self.shift_buf[1:-1], self.spi.copi))
-                m.d.spi += shift_num.eq(shift_num - 1)
-                with m.If(shift_num - 1 == 0):
-                    m.d.comb += self.shift_stb.eq(1)
-                    m.next = "START"
+                with m.FSM() as fsm:
 
-        with m.If(~self.spi.cs):
-            m.d.spi += fsm.state.eq(fsm.encoding["START"])
+                    with m.State("START"):
+                        m.d.sync += self.r_data[0].eq(self.spi.copi)
+                        m.d.sync += shift_num.eq(self.size - 1)
+                        m.next = "RX"
 
-        m.d.comb += self.spi.cipo.eq(fsm.ongoing("START"))
-        m.d.comb += self.spi.cipo.oe.eq(self.spi.cs)
+                    with m.State("RX"):
+                        m.d.sync += self.r_data.eq(Cat(self.r_data[1:-1], self.spi.copi))
+                        m.d.sync += shift_num.eq(shift_num - 1)
+                        with m.If(shift_num - 1 == 0):
+                            m.d.comb += self.r_en.eq(1)
+                            m.next = "START"
+
+        with m.Else():
+            m.d.sync += fsm.state.eq(fsm.encoding["START"])
+
+        m.d.comb += self.spi.cipo.eq(self.r_en)
+        m.d.comb += self.spi.cipo.oe.eq(1)
 
         return m
 
 class PicoIcePmodDemo(Elaboratable):
     def elaborate(self):
         spi = platform.request("spi", 1)
+        led_r = platform.request("led_r", 0)
+        led_g = platform.request("led_g", 0)
+        led_b = platform.request("led_b", 0)
 
         m = Module()
-        m.submodules.spi = SPIPeripheral(spi)
+        m_spi = m.submodules.spi = SPIPeripheral(spi)
+
+        count = Signal(3)
+
+        with m.If(m_spi.r_en & (m_spi.r_data == 0x0F)):
+            m.d.sync += count.eq(count + 1)
+
+        m.d.comb += led_r.eq(count[0])
+        m.d.comb += led_g.eq(count[1])
+        m.d.comb += led_b.eq(count[2])
+
         return m
 
 if __name__ == "__main__":
