@@ -13,6 +13,7 @@ add_executable(pico_ice_pmod_demo
     src/main.c
     src/usb_descriptors.c
     src/pmod_spi.c
+    src/pmod_oledrgb.c
 )
 target_link_libraries(pico_ice_pmod_demo
     pico_ice_sdk

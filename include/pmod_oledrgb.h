@@ -1,18 +1,18 @@
 /*
  * MIT License
- * 
+ *
  * Copyright (c) 2023 tinyVision.ai
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,25 +27,13 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "pmod_spi.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define PMOD_OLEDRGB_SPI_CS_N_PIN    ICE_PMOD2A_SPI_CS_PIN
 
-struct pmod_spi {
-    uint8_t clk_pin, cs_n_pin, copi_pin, cipo_pin;
-};
-
-void pmod_spi_init(void);
-void pmod_spi_chip_select(struct pmod_spi *spi);
-void pmod_spi_chip_deselect(struct pmod_spi *spi);
-void pmod_spi_write_async(struct pmod_spi *spi, uint8_t const *buf_w, size_t len, void (*callback)(volatile void *), void *context);
-void pmod_spi_read_async(struct pmod_spi *spi, uint8_t tx, uint8_t *buf_r, size_t len, void (*callback)(volatile void *), void *context);
-bool pmod_spi_is_async_complete(struct pmod_spi *spi);
-void pmod_spi_await_async_completion(struct pmod_spi *spi);
-void pmod_spi_read_blocking(struct pmod_spi *spi, uint8_t tx, uint8_t *buf, size_t len);
-void pmod_spi_write_blocking(struct pmod_spi *spi, uint8_t const *buf, size_t len);
-
-#ifdef __cplusplus
+struct pmod_oledrgb {
+    struct pmod_spi spi;
+    uint8_t dc_pin, rst_n_pin, vcc_en_n_pin, pmod_en_pin;
 }
-#endif
+
+void pmod_oledrgb_init(struct pmod_oledrgb *pmod);

@@ -41,19 +41,15 @@
 #include "boards/pico_ice.h"
 #include "pmod_spi.h"
 
-volatile static bool g_transfer_done = true;
-volatile static void (*g_async_callback)(volatile void *);
-volatile static void *g_async_context;
-
-void pmod_spi_init(void) {
+void pmod_spi_init(struct pmod_spi *spi) {
     // This driver is only focused on one particular SPI bus
     // Everything in high impedance (input) before a transaction occurs
-    gpio_init(ICE_PMOD2A_SPI_SCK_PIN);
-    gpio_init(ICE_PMOD2A_SPI_MOSI_PIN);
-    gpio_init(ICE_PMOD2A_SPI_MISO_PIN);
+    gpio_init(spi->clk_pin);
+    gpio_init(spi->clk_cipo);
+    gpio_init(spi->clk_copi);
 }
 
-static uint8_t transfer_byte(uint8_t tx) {
+static uint8_t transfer_byte(struct pmod_spi *spi, uint8_t tx) {
     uint8_t rx;
 
     for (uint8_t i = 0; i < 8; i++) {
@@ -76,7 +72,7 @@ static uint8_t transfer_byte(uint8_t tx) {
     return rx;
 }
 
-void pmod_spi_chip_select(uint8_t csn_pin) {
+void pmod_spi_chip_select(struct pmod_spi *spi, uint8_t cs_n_pin) {
     // Drive the bus, going out of high-impedance mode
     gpio_put(ICE_PMOD2A_SPI_SCK_PIN, false);
     gpio_put(ICE_PMOD2A_SPI_MOSI_PIN, true);
@@ -84,79 +80,29 @@ void pmod_spi_chip_select(uint8_t csn_pin) {
     gpio_set_dir(ICE_PMOD2A_SPI_MOSI_PIN, GPIO_OUT);
 
     // Start an SPI transaction
-    gpio_put(csn_pin, false);
-    gpio_set_dir(csn_pin, GPIO_OUT);
+    gpio_put(cs_n_pin, false);
+    gpio_set_dir(cs_n_pin, GPIO_OUT);
     sleep_us(5);
 }
 
-void pmod_spi_chip_deselect(uint8_t csn_pin) {
+void pmod_spi_chip_deselect(struct pmod_spi *spi, uint8_t cs_n_pin) {
     // Terminate the transaction
-    gpio_put(csn_pin, true);
+    gpio_put(cs_n_pin, true);
 
     // Release the bus by putting it high-impedance mode
-    gpio_set_dir(csn_pin, GPIO_IN);
+    gpio_set_dir(cs_n_pin, GPIO_IN);
     gpio_set_dir(ICE_PMOD2A_SPI_SCK_PIN, GPIO_IN);
     gpio_set_dir(ICE_PMOD2A_SPI_MOSI_PIN, GPIO_IN);
 }
 
-static void prepare_transfer(void (*callback)(volatile void *), void *context) {
-    uint32_t status;
-
-    pmod_spi_await_async_completion();
-
-    status = save_and_disable_interrupts();
-    g_async_callback = callback;
-    g_async_context = context;
-    g_transfer_done = false;
-    restore_interrupts(status);
-}
-
-// TODO: this is not yet called from interrupt yet
-static void spi_irq_handler(void) {
-    if (true) { // TODO: check for pending bytes to transfer
-        if (g_async_callback != NULL) {
-            (*g_async_callback)(g_async_context);
-        }
-        g_transfer_done = true;
-    }
-}
-
-void pmod_spi_write_async(uint8_t const *buf, size_t len, void (*callback)(volatile void *), void *context) {
-    // TODO: we could just call callback(context) directly but this is to mimick the future behavior
-    prepare_transfer(callback, context);
-
+void pmod_spi_write(struct pmod_spi *spi, uint8_t const *buf, size_t len) {
     for (; len > 0; len--, buf++) {
         transfer_byte(*buf);
     }
-    spi_irq_handler();
 }
 
-void pmod_spi_read_async(uint8_t tx, uint8_t *buf, size_t len, void (*callback)(volatile void *), void *context) {
-    // TODO: we could just call callback(context) directly but this is to mimick the future behavior
-    prepare_transfer(callback, context);
-
+void pmod_spi_read(struct pmod_spi *spi, uint8_t tx, uint8_t *buf, size_t len) {
     for (; len > 0; len--, buf++) {
         *buf = transfer_byte(tx);
     }
-    spi_irq_handler();
-}
-
-bool pmod_spi_is_async_complete(void) {
-    return g_transfer_done;
-}
-
-void pmod_spi_await_async_completion(void) {
-    while (!pmod_spi_is_async_complete()) {
-        // _WFE(); // TODO: uncomment this while switching to interrupt-based implementation
-    }
-}
-
-void pmod_spi_read_blocking(uint8_t tx, uint8_t *buf, size_t len) {
-    pmod_spi_read_async(tx, buf, len, NULL, NULL);
-    pmod_spi_await_async_completion();
-}
-
-void pmod_spi_write_blocking(uint8_t const *buf, size_t len) {
-    pmod_spi_write_async(buf, len, NULL, NULL);
-    pmod_spi_await_async_completion();
 }
