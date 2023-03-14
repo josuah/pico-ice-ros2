@@ -44,8 +44,8 @@ class PicoIcePmodDemo(Elaboratable):
         spi = platform.request("spi", 1)
 
         m = Module()
-
-        return SPIPeripheral(spi)
+        m.submodules.spi = SPIPeripheral(spi)
+        return m
 
 if __name__ == "__main__":
     platform = PicoIcePlatform()
