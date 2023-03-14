@@ -50,7 +50,7 @@ class PicoIcePmodDemo(Elaboratable):
 if __name__ == "__main__":
     platform = PicoIcePlatform()
     platform.add_resources([
-        SPIResource("spi", 1, clk="21", cipo="26", copi="19", cs_n="25",
+        SPIResource("spi", 1, clk="21", cipo="27", copi="19", cs_n="25",
                     role="peripheral"),
     ])
     platform.build(PicoIcePmodDemo, do_program=True)
