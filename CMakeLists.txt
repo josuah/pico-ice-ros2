@@ -12,6 +12,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/pico-ice-sdk)
 add_executable(pico_ice_pmod_demo
     src/main.c
     src/usb_descriptors.c
+    src/pmod_spi.c
 )
 target_link_libraries(pico_ice_pmod_demo
     pico_ice_sdk
