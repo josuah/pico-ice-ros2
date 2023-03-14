@@ -6,7 +6,11 @@
 #include "ice_usb.h"
 #include "ice_led.h"
 #include "ice_fpga.h"
-#include "pmod_spi.h"
+#include "pmod_oledrgb.h"
+
+struct pmod_oledrgb pmod_oledrgb = {
+    .pmod_spi = {  },
+};
 
 int main(void) {
     stdio_init_all();
@@ -23,9 +27,7 @@ int main(void) {
     for (;;) {
         tud_task();
 
-        pmod_spi_chip_select(ICE_PMOD2A_SPI_CS_PIN);
-        pmod_spi_write_blocking("\x12\x34\x56\x78", 4);
-        pmod_spi_chip_deselect(ICE_PMOD2A_SPI_CS_PIN);
+        pmod_oledrgb_init(&pmod_oledrgb);
     }
     return 0;
 }

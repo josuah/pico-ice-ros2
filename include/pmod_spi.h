@@ -36,15 +36,11 @@ struct pmod_spi {
     uint8_t clk_pin, cs_n_pin, copi_pin, cipo_pin;
 };
 
-void pmod_spi_init(void);
+void pmod_spi_init(struct pmod_spi *spi);
 void pmod_spi_chip_select(struct pmod_spi *spi);
 void pmod_spi_chip_deselect(struct pmod_spi *spi);
-void pmod_spi_write_async(struct pmod_spi *spi, uint8_t const *buf_w, size_t len, void (*callback)(volatile void *), void *context);
-void pmod_spi_read_async(struct pmod_spi *spi, uint8_t tx, uint8_t *buf_r, size_t len, void (*callback)(volatile void *), void *context);
-bool pmod_spi_is_async_complete(struct pmod_spi *spi);
-void pmod_spi_await_async_completion(struct pmod_spi *spi);
-void pmod_spi_read_blocking(struct pmod_spi *spi, uint8_t tx, uint8_t *buf, size_t len);
-void pmod_spi_write_blocking(struct pmod_spi *spi, uint8_t const *buf, size_t len);
+void pmod_spi_read(struct pmod_spi *spi, uint8_t tx, uint8_t *buf, size_t len);
+void pmod_spi_write(struct pmod_spi *spi, uint8_t const *buf, size_t len);
 
 #ifdef __cplusplus
 }
