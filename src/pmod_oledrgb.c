@@ -104,19 +104,19 @@ static const uint8_t test_draw_opcode[] = {
     END
 };
 
-static void pmod_oledrgb_write(pmod_2x_t *pmod, uint8_t const *data, size_t size) {
+static void pmod_oledrgb_write(const pmod_2x_t *pmod, uint8_t const *data, size_t size) {
     pmod_spi_chip_select(&pmod->row.top, pmod->spi.cs_n);
     pmod_spi_write(&pmod->row.top, data, size);
     pmod_spi_chip_deselect(&pmod->row.top, pmod->spi.cs_n);
 }
 
-static void pmod_oledrgb_run(pmod_2x_t *pmod, uint8_t const *opcode) {
+static void pmod_oledrgb_run(const pmod_2x_t *pmod, uint8_t const *opcode) {
     for (uint8_t const *pos = config_opcode; *pos != 0; pos += 1 + *pos) {
         pmod_oledrgb_write(pmod, pos + 1, *pos);
     }
 }
 
-void pmod_oledrgb_init(pmod_2x_t *pmod) {
+void pmod_oledrgb_init(const pmod_2x_t *pmod) {
     pmod_spi_init(&pmod->row.top);
     gpio_init(pmod->spi.cs_n);
 

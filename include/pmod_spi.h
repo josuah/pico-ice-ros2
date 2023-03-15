@@ -29,8 +29,8 @@
 #include <stdbool.h>
 #include "pmod.h"
 
-void pmod_spi_init(pmod_1x_t *pmod);
-void pmod_spi_chip_select(pmod_1x_t *pmod, uint8_t cs_n_pin);
-void pmod_spi_chip_deselect(pmod_1x_t *pmod, uint8_t cs_n_pin);
-void pmod_spi_read(pmod_1x_t *pmod, uint8_t tx, uint8_t *buf, size_t len);
-void pmod_spi_write(pmod_1x_t *pmod, uint8_t const *buf, size_t len);
+void pmod_spi_init(const pmod_1x_t *pmod);
+void pmod_spi_chip_select(const pmod_1x_t *pmod, uint8_t cs_n_pin);
+void pmod_spi_chip_deselect(const pmod_1x_t *pmod, uint8_t cs_n_pin);
+void pmod_spi_read(const pmod_1x_t *pmod, uint8_t tx, uint8_t *buf, size_t len);
+void pmod_spi_write(const pmod_1x_t *pmod, uint8_t const *buf, size_t len);

@@ -34,4 +34,4 @@
 #define oledrgb_vcc_en_n    spi.io9
 #define oledrgb_pmod_en     spi.io10
 
-void pmod_oledrgb_init(pmod_2x_t *pmod);
+void pmod_oledrgb_init(const pmod_2x_t *pmod);

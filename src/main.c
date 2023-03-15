@@ -8,11 +8,11 @@
 #include "ice_fpga.h"
 #include "ice_pmod.h"
 #include "pmod_oledrgb.h"
+#include "pmod_spi.h"
 
 int main(void) {
     stdio_init_all();
     tusb_init();
-    pmod_spi_init();
 
     // Let the FPGA start and give it a clock
     ice_fpga_init(48);
