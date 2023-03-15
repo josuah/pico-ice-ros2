@@ -25,11 +25,13 @@
 // https://digilent.com/reference/pmod/pmodoledrgb/reference-manual
 
 #include "hardware/gpio.h"
+#include "pico/stdlib.h"
+#include "pmod.h"
 #include "pmod_spi.h"
 #include "pmod_oledrgb.h"
 
-#define DC_PIN_DATA
-#define DC_PIN_COMMAND
+#define DC_PIN_COMMAND 0
+#define DC_PIN_DATA 1
 
 #define SSD1331_LOCK                    0xFD
 #define SSD1331_REMAP_AND_COLOR_DEPTH   0xA0
@@ -75,7 +77,7 @@ static const uint8_t config_opcode[] = {
     OP1(SSD1331_DISPLAY_MODE_NORMAL),
     OP2(SSD1331_MULTIPLEX_RATIO, 0x3F),
     OP2(SSD1331_MASTER_CONFIG, 0x8E),
-    OP2(SSD1331_POWER_SAVE_MODE, 0B),
+    OP2(SSD1331_POWER_SAVE_MODE, 0x0B),
     OP2(SSD1331_PHASE_PERIOD_ADJUST, 0x31),
     OP2(SSD1331_CLOCK_DIV_OSC_FREQ, 0xF0),
     OP2(SSD1331_PRE_CHARGE_SPEED_A, 0x64),
@@ -93,71 +95,70 @@ static const uint8_t config_opcode[] = {
 };
 
 static const uint8_t turn_on_opcode[] = {
-    OP1(SSD1331_DISPLAY_ON),
+    OP1(SSD1331_DISPLAY_ON_NORMAL),
     END
-}
+};
 
 static const uint8_t test_draw_opcode[] = {
-    OP7(DRAW_LINE, 0, 0, 30, 30, 35,0,0)
+    OP8(SSD1331_DRAW_LINE, 0,0, 30,30, 35,0,0),
     END
+};
+
+static void pmod_oledrgb_write(pmod_2x_t *pmod, uint8_t const *data, size_t size) {
+    pmod_spi_chip_select(&pmod->row.top, pmod->spi.cs_n);
+    pmod_spi_write(&pmod->row.top, data, size);
+    pmod_spi_chip_deselect(&pmod->row.top, pmod->spi.cs_n);
 }
 
-static void pmod_oledrgb_write(struct pmod_oledrgb *pmod, size_t *data, size_t size) {
-    pmod_spi_chip_select(&pmod->spi, PMOD_OLEDRGB_SPI_CS_N_PIN);
-    pmod_spi_write_blocking(&pmod->spi, &addr, 1);
-    pmod_spi_write_blocking(&pmod->spi, &data, 1);
-    pmod_spi_chip_deselect(&pmod->spi, PMOD_OLEDRGB_SPI_CS_N_PIN);
-}
-
-static void pmod_oledrgb_run(struct pmod_oledrgb *pmod, uint8_t const *opcode) {
-    for (uint8_t *pos = config_opcode; *pos != 0; pos += 1 + *pos) {
+static void pmod_oledrgb_run(pmod_2x_t *pmod, uint8_t const *opcode) {
+    for (uint8_t const *pos = config_opcode; *pos != 0; pos += 1 + *pos) {
         pmod_oledrgb_write(pmod, pos + 1, *pos);
     }
 }
 
-static void pmod_oledrgb_gpio_init(struct pmod_oledrgb *pmod) {
-    pmod_spi_init(&pmod->spi);
-    gpio_init(pmod->spi_cs_n_pin);
+void pmod_oledrgb_init(pmod_2x_t *pmod) {
+    pmod_spi_init(&pmod->row.top);
+    gpio_init(pmod->spi.cs_n);
 
-    gpio_init(pmod->dc_pin);
-    gpio_set_dir(pmod->dc_pin, GPIO_OUT);
+    gpio_init(pmod->oledrgb_dc);
+    gpio_set_dir(pmod->oledrgb_dc, GPIO_OUT);
 
-    gpio_init(pmod->rst_n_pin);
-    gpio_set_dir(pmod->rst_n_pin, GPIO_OUT);
+    gpio_init(pmod->oledrgb_rst_n);
+    gpio_set_dir(pmod->oledrgb_rst_n, GPIO_OUT);
 
-    gpio_init(pmod->vcc_en_n_pin);
-    gpio_set_dir(pmod->vcc_en_n_pin, GPIO_OUT);
+    gpio_init(pmod->oledrgb_vcc_en_n);
+    gpio_set_dir(pmod->oledrgb_vcc_en_n, GPIO_OUT);
 
-    gpio_init(pmod->pmod_en_pin);
-    gpio_set_dir(pmod->pmod_en_pin, GPIO_OUT);
+    gpio_init(pmod->oledrgb_pmod_en);
+    gpio_set_dir(pmod->oledrgb_pmod_en, GPIO_OUT);
 
     // initial state
-    gpio_put(pmod->dc_pin, DC_PIN_XXXX);
-    gpio_put(pmod->rst_n_pin, !false);
+    gpio_put(pmod->oledrgb_dc, DC_PIN_COMMAND);
+    gpio_put(pmod->oledrgb_rst_n, !false);
 
     // Enable the negative and positive power rail
-    gpio_put(pmod->vcc_en_n_pin, !true);
-    gpio_put(pmod->pmod_en_pin, true);
-    delay_ms(20);
+    gpio_put(pmod->oledrgb_vcc_en_n, !true);
+    gpio_put(pmod->oledrgb_pmod_en, true);
+    sleep_ms(20);
 
     // Issue a reset pulse
-    gpio_put(pmod->rst_n_pin, !true);
-    delay_us(3);
-    gpio_put(pmod->rst_n_pin, !false);
-    delay_us(3);
+    gpio_put(pmod->oledrgb_rst_n, !true);
+    sleep_us(3);
+    gpio_put(pmod->oledrgb_rst_n, !false);
+    sleep_us(3);
 
     // Send the configuration
-    pmod_oledrgb_run(config_opcode);
+    pmod_oledrgb_run(pmod, config_opcode);
 
     // Pause the positive power rail
-    gpio_put(pmod->vcc_en_n_pin, !true);
+    gpio_put(pmod->oledrgb_vcc_en_n, !true);
     sleep_ms(25);
 
     // Turn the display on
-    pmod_oledrgb_run(turn_on_opcode);
+    pmod_oledrgb_run(pmod, turn_on_opcode);
     sleep_ms(100);
 
     // Draw something to test
     // TODO debug
-    pmod_oledrgb_run(test_draw_opcode);
+    pmod_oledrgb_run(pmod, test_draw_opcode);
 }

@@ -1,8 +1,12 @@
+import sys
+sys.path.insert(0, 'lib/pico-ice-sdk/amaranth')
+
 from amaranth import *
 from amaranth.build import *
 from amaranth_boards.extensions.pmod import *
 from amaranth_boards.resources import *
-from pico_ice import PicoIcePlatform
+from pmod import *
+from pico_ice import *
 
 class SPIPeripheral(Elaboratable):
     def __init__(self, spi, size=8):

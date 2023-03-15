@@ -27,21 +27,10 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "pmod.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct pmod_spi {
-    uint8_t clk_pin, cs_n_pin, copi_pin, cipo_pin;
-};
-
-void pmod_spi_init(struct pmod_spi *spi);
-void pmod_spi_chip_select(struct pmod_spi *spi);
-void pmod_spi_chip_deselect(struct pmod_spi *spi);
-void pmod_spi_read(struct pmod_spi *spi, uint8_t tx, uint8_t *buf, size_t len);
-void pmod_spi_write(struct pmod_spi *spi, uint8_t const *buf, size_t len);
-
-#ifdef __cplusplus
-}
-#endif
+void pmod_spi_init(pmod_1x_t *pmod);
+void pmod_spi_chip_select(pmod_1x_t *pmod, uint8_t cs_n_pin);
+void pmod_spi_chip_deselect(pmod_1x_t *pmod, uint8_t cs_n_pin);
+void pmod_spi_read(pmod_1x_t *pmod, uint8_t tx, uint8_t *buf, size_t len);
+void pmod_spi_write(pmod_1x_t *pmod, uint8_t const *buf, size_t len);

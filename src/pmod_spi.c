@@ -40,22 +40,23 @@
 #include "pico/stdlib.h"
 #include "boards/pico_ice.h"
 #include "pmod_spi.h"
+#include "pmod.h"
 
-void pmod_spi_init(struct pmod_spi *spi) {
+void pmod_spi_init(pmod_1x_t *pmod) {
     // This driver is only focused on one particular SPI bus
     // Everything in high impedance (input) before a transaction occurs
-    gpio_init(spi->clk_pin);
-    gpio_init(spi->clk_cipo);
-    gpio_init(spi->clk_copi);
+    gpio_init(pmod->spi.clk);
+    gpio_init(pmod->spi.cipo);
+    gpio_init(pmod->spi.copi);
 }
 
-static uint8_t transfer_byte(struct pmod_spi *spi, uint8_t tx) {
+static uint8_t transfer_byte(pmod_1x_t *pmod, uint8_t tx) {
     uint8_t rx;
 
     for (uint8_t i = 0; i < 8; i++) {
         // Update TX and immediately set negative edge.
-        gpio_put(ICE_PMOD2A_SPI_SCK_PIN, false);
-        gpio_put(ICE_PMOD2A_SPI_MOSI_PIN, tx >> 7);
+        gpio_put(pmod->spi.clk, false);
+        gpio_put(pmod->spi.copi, tx >> 7);
         tx <<= 1;
 
         // stable for a while with clock low
@@ -63,8 +64,8 @@ static uint8_t transfer_byte(struct pmod_spi *spi, uint8_t tx) {
 
         // Sample RX as we set positive edge.
         rx <<= 1;
-        rx |= gpio_get(ICE_PMOD2A_SPI_MISO_PIN);
-        gpio_put(ICE_PMOD2A_SPI_SCK_PIN, true);
+        rx |= gpio_get(pmod->spi.cipo);
+        gpio_put(pmod->spi.clk, true);
 
         // stable for a while with clock high
         sleep_us(1);
@@ -72,12 +73,12 @@ static uint8_t transfer_byte(struct pmod_spi *spi, uint8_t tx) {
     return rx;
 }
 
-void pmod_spi_chip_select(struct pmod_spi *spi, uint8_t cs_n_pin) {
+void pmod_spi_chip_select(pmod_1x_t *pmod, uint8_t cs_n_pin) {
     // Drive the bus, going out of high-impedance mode
-    gpio_put(ICE_PMOD2A_SPI_SCK_PIN, false);
-    gpio_put(ICE_PMOD2A_SPI_MOSI_PIN, true);
-    gpio_set_dir(ICE_PMOD2A_SPI_SCK_PIN, GPIO_OUT);
-    gpio_set_dir(ICE_PMOD2A_SPI_MOSI_PIN, GPIO_OUT);
+    gpio_put(pmod->spi.clk, false);
+    gpio_put(pmod->spi.copi, true);
+    gpio_set_dir(pmod->spi.clk, GPIO_OUT);
+    gpio_set_dir(pmod->spi.copi, GPIO_OUT);
 
     // Start an SPI transaction
     gpio_put(cs_n_pin, false);
@@ -85,24 +86,24 @@ void pmod_spi_chip_select(struct pmod_spi *spi, uint8_t cs_n_pin) {
     sleep_us(5);
 }
 
-void pmod_spi_chip_deselect(struct pmod_spi *spi, uint8_t cs_n_pin) {
+void pmod_spi_chip_deselect(pmod_1x_t *pmod, uint8_t cs_n_pin) {
     // Terminate the transaction
     gpio_put(cs_n_pin, true);
 
     // Release the bus by putting it high-impedance mode
     gpio_set_dir(cs_n_pin, GPIO_IN);
-    gpio_set_dir(ICE_PMOD2A_SPI_SCK_PIN, GPIO_IN);
-    gpio_set_dir(ICE_PMOD2A_SPI_MOSI_PIN, GPIO_IN);
+    gpio_set_dir(pmod->spi.clk, GPIO_IN);
+    gpio_set_dir(pmod->spi.copi, GPIO_IN);
 }
 
-void pmod_spi_write(struct pmod_spi *spi, uint8_t const *buf, size_t len) {
+void pmod_spi_write(pmod_1x_t *pmod, uint8_t const *buf, size_t len) {
     for (; len > 0; len--, buf++) {
-        transfer_byte(*buf);
+        transfer_byte(pmod, *buf);
     }
 }
 
-void pmod_spi_read(struct pmod_spi *spi, uint8_t tx, uint8_t *buf, size_t len) {
+void pmod_spi_read(pmod_1x_t *pmod, uint8_t tx, uint8_t *buf, size_t len) {
     for (; len > 0; len--, buf++) {
-        *buf = transfer_byte(tx);
+        *buf = transfer_byte(pmod, tx);
     }
 }

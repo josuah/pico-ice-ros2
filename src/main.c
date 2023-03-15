@@ -6,19 +6,13 @@
 #include "ice_usb.h"
 #include "ice_led.h"
 #include "ice_fpga.h"
+#include "ice_pmod.h"
 #include "pmod_oledrgb.h"
-
-struct pmod_oledrgb pmod_oledrgb = {
-    .pmod_spi = {  },
-};
 
 int main(void) {
     stdio_init_all();
     tusb_init();
     pmod_spi_init();
-
-    // Configure bare GPIOs
-    gpio_init(ICE_PMOD2A_SPI_CS_PIN);
 
     // Let the FPGA start and give it a clock
     ice_fpga_init(48);
@@ -27,7 +21,7 @@ int main(void) {
     for (;;) {
         tud_task();
 
-        pmod_oledrgb_init(&pmod_oledrgb);
+        pmod_oledrgb_init(&ice_pmod_3);
     }
     return 0;
 }

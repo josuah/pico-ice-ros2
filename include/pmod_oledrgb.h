@@ -1,18 +1,18 @@
 /*
  * MIT License
- *
+ * 
  * Copyright (c) 2023 tinyVision.ai
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * 
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- *
+ * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,13 +27,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "pmod_spi.h"
+#include "pmod.h"
 
-#define PMOD_OLEDRGB_SPI_CS_N_PIN    ICE_PMOD2A_SPI_CS_PIN
+#define oledrgb_dc          spi.io7
+#define oledrgb_rst_n       spi.io8
+#define oledrgb_vcc_en_n    spi.io9
+#define oledrgb_pmod_en     spi.io10
 
-struct pmod_oledrgb {
-    struct pmod_spi spi;
-    uint8_t dc_pin, rst_n_pin, vcc_en_n_pin, pmod_en_pin;
-}
-
-void pmod_oledrgb_init(struct pmod_oledrgb *pmod);
+void pmod_oledrgb_init(pmod_2x_t *pmod);
