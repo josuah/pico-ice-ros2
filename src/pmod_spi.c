@@ -55,15 +55,15 @@ static uint8_t transfer_byte(const pmod_1x_t *pmod, uint8_t tx) {
     for (uint8_t i = 0; i < 8; i++) {
         // Update TX and immediately set negative edge.
         gpio_put(pmod->spi.clk, false);
-        gpio_put(pmod->spi.copi, tx >> 7);
-        tx <<= 1;
+        gpio_put(pmod->spi.copi, tx & 0x01);
+        tx >>= 1;
 
         // stable for a while with clock low
         delay();
 
         // Sample RX as we set positive edge.
-        rx <<= 1;
-        rx |= gpio_get(pmod->spi.cipo);
+        rx >>= 1;
+        rx |= gpio_get(pmod->spi.cipo) << 7;
         gpio_put(pmod->spi.clk, true);
 
         // stable for a while with clock high
