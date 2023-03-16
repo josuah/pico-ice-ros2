@@ -26,50 +26,48 @@
 
 #include "hardware/gpio.h"
 #include "pico/stdlib.h"
+#include "ice_usb.h"
 #include "pmod.h"
 #include "pmod_spi.h"
 #include "pmod_oledrgb.h"
 
-#define DC_PIN_COMMAND 0
-#define DC_PIN_DATA 1
-
-#define SSD1331_LOCK                    0xFD
+#define SSD1331_DRAW_LINE               0x21
+#define SSD1331_CLEAR_WINDOW            0x25
+#define SSD1331_DEACTIVATE_SCROLLING    0x2E
+#define SSD1331_CONTRAST_FOR_A          0x81
+#define SSD1331_CONTRAST_FOR_B          0x82
+#define SSD1331_CONTRAST_FOR_C          0x83
+#define SSD1331_MASTER_CURRENT_CONTROL  0x87
+#define SSD1331_PRE_CHARGE_SPEED_A      0x8A
+#define SSD1331_PRE_CHARGE_SPEED_B      0x8B
+#define SSD1331_PRE_CHARGE_SPEED_C      0x8C
 #define SSD1331_REMAP_AND_COLOR_DEPTH   0xA0
 #define SSD1331_DISPLAY_START_LINE      0xA1
 #define SSD1331_DISPLAY_OFFSET          0xA2
-#define SSD1331_DISPLAY_ON_DIM          0xAC
-#define SSD1331_DISPLAY_ON_NORMAL       0xAF
-#define SSD1331_DISPLAY_OFF             0xAE
 #define SSD1331_DISPLAY_MODE_NORMAL     0xA4
 #define SSD1331_DISPLAY_MODE_FULL_ON    0xA5
 #define SSD1331_DISPLAY_MODE_FULL_OFF   0xA6
 #define SSD1331_DISPLAY_MODE_INVERSE    0xA7
 #define SSD1331_MULTIPLEX_RATIO         0xA8
+#define SSD1331_DISPLAY_ON_DIM          0xAC
 #define SSD1331_MASTER_CONFIG           0xAD
+#define SSD1331_DISPLAY_OFF             0xAE
+#define SSD1331_DISPLAY_ON_NORMAL       0xAF
 #define SSD1331_POWER_SAVE_MODE         0xB0
 #define SSD1331_PHASE_PERIOD_ADJUST     0xB1
 #define SSD1331_CLOCK_DIV_OSC_FREQ      0xB3
-#define SSD1331_PRE_CHARGE_SPEED_A      0x8A
-#define SSD1331_PRE_CHARGE_SPEED_B      0x8B
-#define SSD1331_PRE_CHARGE_SPEED_C      0x8C
 #define SSD1331_PRE_CHARGE_LEVEL        0xBB
 #define SSD1331_V_COMH                  0xBE
-#define SSD1331_MASTER_CURRENT_CONTROL  0x87
-#define SSD1331_CONTRAST_FOR_A          0x81
-#define SSD1331_CONTRAST_FOR_B          0x82
-#define SSD1331_CONTRAST_FOR_C          0x83
-#define SSD1331_DEACTIVATE_SCROLLING    0x2E
-#define SSD1331_CLEAR_WINDOW            0x25
-#define SSD1331_DRAW_LINE               0x21
+#define SSD1331_LOCK_STATE              0xFD
 
 #define OP1(addr)                       1, addr
-#define OP2(addr, value)                2, addr, value
+#define OP2(addr, v1)                   2, addr, v1
 #define OP5(addr, v1,v2,v3,v4)          5, addr, v1,v2,v3,v4
 #define OP8(addr, v1,v2,v3,v4,v5,v6,v7) 8, addr, v1,v2,v3,v4,v5,v6,v7
 #define END                             0
 
 static const uint8_t config_opcode[] = {
-    OP2(SSD1331_LOCK, 0x12),
+    OP2(SSD1331_LOCK_STATE, 0x12),
     OP1(SSD1331_DISPLAY_OFF),
     OP2(SSD1331_REMAP_AND_COLOR_DEPTH, 0x72),
     OP2(SSD1331_DISPLAY_START_LINE, 0),
@@ -100,7 +98,7 @@ static const uint8_t turn_on_opcode[] = {
 };
 
 static const uint8_t test_draw_opcode[] = {
-    OP8(SSD1331_DRAW_LINE, 0,0, 30,30, 35,0,0),
+    OP8(SSD1331_DRAW_LINE, 1,1, 30,30, 35,0,0),
     END
 };
 
@@ -111,52 +109,59 @@ static void pmod_oledrgb_write(const pmod_2x_t *pmod, uint8_t const *data, size_
 }
 
 static void pmod_oledrgb_run(const pmod_2x_t *pmod, uint8_t const *opcode) {
-    for (uint8_t const *pos = config_opcode; *pos != 0; pos += 1 + *pos) {
+    for (uint8_t const *pos = opcode; *pos != 0; pos += 1 + *pos) {
         pmod_oledrgb_write(pmod, pos + 1, *pos);
+        printf("%d:0x%02X ", pos[0], pos[1]);
     }
+    printf("END\r\n");
 }
 
 void pmod_oledrgb_init(const pmod_2x_t *pmod) {
+    // spi pin init
     pmod_spi_init(&pmod->row.top);
-    gpio_init(pmod->spi.cs_n);
 
+    // pin 1 - SPI chip select (deselected)
+    gpio_init(pmod->spi.cs_n);
+    gpio_put(pmod->spi.cs_n, true);
+    gpio_set_dir(pmod->spi.cs_n, GPIO_OUT);
+
+    // pin 7 - data/command mode selection (command)
     gpio_init(pmod->oledrgb_dc);
+    gpio_put(pmod->oledrgb_dc, false);
     gpio_set_dir(pmod->oledrgb_dc, GPIO_OUT);
 
+    // pin 8 - SSD1331 controller reset (no reset)
     gpio_init(pmod->oledrgb_rst_n);
+    gpio_put(pmod->oledrgb_rst_n, !false);
     gpio_set_dir(pmod->oledrgb_rst_n, GPIO_OUT);
 
+    // pin 9 - Gnd power rail (enable)
     gpio_init(pmod->oledrgb_vcc_en_n);
+    gpio_put(pmod->oledrgb_vcc_en_n, !true);
     gpio_set_dir(pmod->oledrgb_vcc_en_n, GPIO_OUT);
 
+    // pin 10 - 3v3 power rail (enable)
     gpio_init(pmod->oledrgb_pmod_en);
-    gpio_set_dir(pmod->oledrgb_pmod_en, GPIO_OUT);
-
-    // initial state
-    gpio_put(pmod->oledrgb_dc, DC_PIN_COMMAND);
-    gpio_put(pmod->oledrgb_rst_n, !false);
-
-    // Enable the negative and positive power rail
-    gpio_put(pmod->oledrgb_vcc_en_n, !true);
     gpio_put(pmod->oledrgb_pmod_en, true);
-    sleep_ms(20);
+    gpio_set_dir(pmod->oledrgb_pmod_en, GPIO_OUT);
+    ice_usb_sleep_ms(30); // at least 20 us
 
     // Issue a reset pulse
     gpio_put(pmod->oledrgb_rst_n, !true);
-    sleep_us(3);
+    sleep_us(5); // at least 3 us
     gpio_put(pmod->oledrgb_rst_n, !false);
-    sleep_us(3);
+    sleep_us(5); // at least 3 us
 
     // Send the configuration
     pmod_oledrgb_run(pmod, config_opcode);
 
     // Pause the positive power rail
     gpio_put(pmod->oledrgb_vcc_en_n, !true);
-    sleep_ms(25);
+    ice_usb_sleep_ms(35); // at least 25 ms
 
     // Turn the display on
     pmod_oledrgb_run(pmod, turn_on_opcode);
-    sleep_ms(100);
+    ice_usb_sleep_ms(110); // at least 100 ms
 
     // Draw something to test
     // TODO debug

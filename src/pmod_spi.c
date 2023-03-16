@@ -22,16 +22,6 @@
  * SOFTWARE.
  */
 
-// TODO: For now, this is a bit-banged library which is sub-optimal.
-// We could use the hardware SPI for when in forward pin order, and
-// a PIO state machine for reverse pin order. But since we are going
-// to need the reverse pin order anyway, we might as well make use
-// of the PIO state machine right away. This way only one PIO state
-// machine is used and no extra SPI peripheral.
-//
-// So the next evolution of this driver is to use PIO, and after that
-// DMA channels along with PIO.
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -43,11 +33,20 @@
 #include "pmod.h"
 
 void pmod_spi_init(const pmod_1x_t *pmod) {
-    // This driver is only focused on one particular SPI bus
-    // Everything in high impedance (input) before a transaction occurs
-    gpio_init(pmod->spi.clk);
     gpio_init(pmod->spi.cipo);
+
     gpio_init(pmod->spi.copi);
+    gpio_put(pmod->spi.copi, true);
+    gpio_set_dir(pmod->spi.copi, GPIO_OUT);
+
+    gpio_init(pmod->spi.clk);
+    gpio_put(pmod->spi.clk, true);
+    gpio_set_dir(pmod->spi.clk, GPIO_OUT);
+}
+
+static void delay(void)
+{
+    sleep_us(100);
 }
 
 static uint8_t transfer_byte(const pmod_1x_t *pmod, uint8_t tx) {
@@ -60,7 +59,7 @@ static uint8_t transfer_byte(const pmod_1x_t *pmod, uint8_t tx) {
         tx <<= 1;
 
         // stable for a while with clock low
-        sleep_us(1);
+        delay();
 
         // Sample RX as we set positive edge.
         rx <<= 1;
@@ -68,32 +67,22 @@ static uint8_t transfer_byte(const pmod_1x_t *pmod, uint8_t tx) {
         gpio_put(pmod->spi.clk, true);
 
         // stable for a while with clock high
-        sleep_us(1);
+        delay();
     }
     return rx;
 }
 
 void pmod_spi_chip_select(const pmod_1x_t *pmod, uint8_t cs_n_pin) {
-    // Drive the bus, going out of high-impedance mode
-    gpio_put(pmod->spi.clk, false);
-    gpio_put(pmod->spi.copi, true);
-    gpio_set_dir(pmod->spi.clk, GPIO_OUT);
-    gpio_set_dir(pmod->spi.copi, GPIO_OUT);
-
-    // Start an SPI transaction
     gpio_put(cs_n_pin, false);
     gpio_set_dir(cs_n_pin, GPIO_OUT);
-    sleep_us(5);
+    delay();
 }
 
 void pmod_spi_chip_deselect(const pmod_1x_t *pmod, uint8_t cs_n_pin) {
-    // Terminate the transaction
+    gpio_put(pmod->spi.copi, true);
     gpio_put(cs_n_pin, true);
-
-    // Release the bus by putting it high-impedance mode
-    gpio_set_dir(cs_n_pin, GPIO_IN);
-    gpio_set_dir(pmod->spi.clk, GPIO_IN);
-    gpio_set_dir(pmod->spi.copi, GPIO_IN);
+    gpio_set_dir(cs_n_pin, GPIO_OUT);
+    delay();
 }
 
 void pmod_spi_write(const pmod_1x_t *pmod, uint8_t const *buf, size_t len) {
