@@ -21,8 +21,6 @@ int main(void) {
 
     while (1) {
         tud_task();
-        pmod_oledrgb_init(&ice_pmod_3);
-        pmod_oledrgb_init(&ice_pmod_4);
     }
     return 0;
 }

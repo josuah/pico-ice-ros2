@@ -31,7 +31,10 @@
 #include "pmod_spi.h"
 #include "pmod_oledrgb.h"
 
+#define SSD1331_COL_ADDRESS             0x15
+#define SSD1331_ROW_ADDRESS             0x75
 #define SSD1331_DRAW_LINE               0x21
+#define SSD1331_DRAW_RECTANGLE          0x22
 #define SSD1331_CLEAR_WINDOW            0x25
 #define SSD1331_DEACTIVATE_SCROLLING    0x2E
 #define SSD1331_CONTRAST_FOR_A          0x81
@@ -62,45 +65,11 @@
 
 #define OP1(addr)                       1, addr
 #define OP2(addr, v1)                   2, addr, v1
+#define OP3(addr, v1,v2)                3, addr, v1,v2
 #define OP5(addr, v1,v2,v3,v4)          5, addr, v1,v2,v3,v4
 #define OP8(addr, v1,v2,v3,v4,v5,v6,v7) 8, addr, v1,v2,v3,v4,v5,v6,v7
+#define OP11(addr, v1,v2,v3,v4,v5,v6,v7,v8,v9,v10)  11, addr, v1,v2,v3,v4,v5,v6,v7,v8,v9,v10
 #define END                             0
-
-static const uint8_t config_opcode[] = {
-    OP2(SSD1331_LOCK_STATE, 0x12),
-    OP1(SSD1331_DISPLAY_OFF),
-    OP2(SSD1331_REMAP_AND_COLOR_DEPTH, 0x72),
-    OP2(SSD1331_DISPLAY_START_LINE, 0),
-    OP2(SSD1331_DISPLAY_OFFSET, 0),
-    OP1(SSD1331_DISPLAY_MODE_NORMAL),
-    OP2(SSD1331_MULTIPLEX_RATIO, 0x3F),
-    OP2(SSD1331_MASTER_CONFIG, 0x8E),
-    OP2(SSD1331_POWER_SAVE_MODE, 0x0B),
-    OP2(SSD1331_PHASE_PERIOD_ADJUST, 0x31),
-    OP2(SSD1331_CLOCK_DIV_OSC_FREQ, 0xF0),
-    OP2(SSD1331_PRE_CHARGE_SPEED_A, 0x64),
-    OP2(SSD1331_PRE_CHARGE_SPEED_B, 0x78),
-    OP2(SSD1331_PRE_CHARGE_SPEED_C, 0x64),
-    OP2(SSD1331_PRE_CHARGE_LEVEL, 0x3A),
-    OP2(SSD1331_V_COMH, 0x3E),
-    OP2(SSD1331_MASTER_CURRENT_CONTROL, 0x06),
-    OP2(SSD1331_CONTRAST_FOR_A, 0x91),
-    OP2(SSD1331_CONTRAST_FOR_B, 0x50),
-    OP2(SSD1331_CONTRAST_FOR_C, 0x7D),
-    OP1(SSD1331_DEACTIVATE_SCROLLING),
-    OP5(SSD1331_CLEAR_WINDOW, 0, 0, 95, 63),
-    END
-};
-
-static const uint8_t turn_on_opcode[] = {
-    OP1(SSD1331_DISPLAY_ON_NORMAL),
-    END
-};
-
-static const uint8_t test_draw_opcode[] = {
-    OP8(SSD1331_DRAW_LINE, 1,1, 30,30, 35,0,0),
-    END
-};
 
 static void pmod_oledrgb_write(const pmod_2x_t *pmod, uint8_t const *data, size_t size) {
     pmod_spi_chip_select(&pmod->row.top, pmod->spi.cs_n);
@@ -111,9 +80,7 @@ static void pmod_oledrgb_write(const pmod_2x_t *pmod, uint8_t const *data, size_
 static void pmod_oledrgb_run(const pmod_2x_t *pmod, uint8_t const *opcode) {
     for (uint8_t const *pos = opcode; *pos != 0; pos += 1 + *pos) {
         pmod_oledrgb_write(pmod, pos + 1, *pos);
-        printf("%d:0x%02X ", pos[0], pos[1]);
     }
-    printf("END\r\n");
 }
 
 void pmod_oledrgb_init(const pmod_2x_t *pmod) {
@@ -135,35 +102,74 @@ void pmod_oledrgb_init(const pmod_2x_t *pmod) {
     gpio_put(pmod->oledrgb_rst_n, !false);
     gpio_set_dir(pmod->oledrgb_rst_n, GPIO_OUT);
 
-    // pin 9 - Gnd power rail (enable)
-    gpio_init(pmod->oledrgb_vcc_en_n);
-    gpio_put(pmod->oledrgb_vcc_en_n, !true);
-    gpio_set_dir(pmod->oledrgb_vcc_en_n, GPIO_OUT);
+    // pin 9 - 14v power rail (off)
+    gpio_init(pmod->oledrgb_14v_en);
+    gpio_put(pmod->oledrgb_14v_en, false);
+    gpio_set_dir(pmod->oledrgb_14v_en, GPIO_OUT);
 
-    // pin 10 - 3v3 power rail (enable)
-    gpio_init(pmod->oledrgb_pmod_en);
-    gpio_put(pmod->oledrgb_pmod_en, true);
-    gpio_set_dir(pmod->oledrgb_pmod_en, GPIO_OUT);
-    ice_usb_sleep_ms(30); // at least 20 us
+    // pin 10 - ground power rail (enable)
+    gpio_init(pmod->oledrgb_gnd_en);
+    gpio_put(pmod->oledrgb_gnd_en, true);
+    gpio_set_dir(pmod->oledrgb_gnd_en, GPIO_OUT);
+    ice_usb_sleep_ms(1); // at least 20 us
 
     // Issue a reset pulse
     gpio_put(pmod->oledrgb_rst_n, !true);
-    sleep_us(5); // at least 3 us
+    ice_usb_sleep_ms(1); // at least 3 us
     gpio_put(pmod->oledrgb_rst_n, !false);
-    sleep_us(5); // at least 3 us
+    ice_usb_sleep_ms(1); // at least 3 us
 
     // Send the configuration
-    pmod_oledrgb_run(pmod, config_opcode);
+    static const uint8_t config_opcode[] = {
+        //OP2(SSD1331_LOCK_STATE, 0x12),
+        OP1(SSD1331_DISPLAY_OFF),
+        OP2(SSD1331_REMAP_AND_COLOR_DEPTH, 0x72),
+        OP2(SSD1331_DISPLAY_START_LINE, 0),
+        OP2(SSD1331_DISPLAY_OFFSET, 0),
+        OP1(SSD1331_DISPLAY_MODE_NORMAL),
+        OP2(SSD1331_MULTIPLEX_RATIO, 0x3F),
+        OP2(SSD1331_MASTER_CONFIG, 0x8E),
+        OP2(SSD1331_POWER_SAVE_MODE, 0x0B),
+        OP2(SSD1331_PHASE_PERIOD_ADJUST, 0x31),
+        OP2(SSD1331_CLOCK_DIV_OSC_FREQ, 0xF0),
+        OP2(SSD1331_PRE_CHARGE_SPEED_A, 0x64),
+        OP2(SSD1331_PRE_CHARGE_SPEED_B, 0x78),
+        OP2(SSD1331_PRE_CHARGE_SPEED_C, 0x64),
+        OP2(SSD1331_PRE_CHARGE_LEVEL, 0x3A),
+        OP2(SSD1331_V_COMH, 0x3E),
+        OP2(SSD1331_MASTER_CURRENT_CONTROL, 0x06),
+        OP2(SSD1331_CONTRAST_FOR_A, 0x91),
+        OP2(SSD1331_CONTRAST_FOR_B, 0x50),
+        OP2(SSD1331_CONTRAST_FOR_C, 0x7D),
+        OP1(SSD1331_DEACTIVATE_SCROLLING),
+        OP5(SSD1331_CLEAR_WINDOW, 0, 0, 95, 63),
+        END
+    };
+    //pmod_oledrgb_run(pmod, config_opcode);
 
-    // Pause the positive power rail
-    gpio_put(pmod->oledrgb_vcc_en_n, !true);
-    ice_usb_sleep_ms(35); // at least 25 ms
+    // Enable the positive power rail
+    gpio_put(pmod->oledrgb_14v_en, true);
+    ice_usb_sleep_ms(200); // at least 100 ms
 
     // Turn the display on
-    pmod_oledrgb_run(pmod, turn_on_opcode);
-    ice_usb_sleep_ms(110); // at least 100 ms
+    static const uint8_t turn_on_opcode[] = {
+        OP1(SSD1331_DISPLAY_ON_NORMAL),
+        END
+    };
+    //pmod_oledrgb_run(pmod, turn_on_opcode);
+    ice_usb_sleep_ms(300); // at least 25 ms
 
-    // Draw something to test
-    // TODO debug
-    pmod_oledrgb_run(pmod, test_draw_opcode);
+    static const uint8_t test_opcode[] = {
+        OP3(SSD1331_COL_ADDRESS, 10, 95),
+        OP3(SSD1331_ROW_ADDRESS, 15, 63)
+    };
+    pmod_oledrgb_run(pmod, test_opcode);
+    ice_usb_sleep_ms(5);
+
+    static const uint8_t pixel_data[] = {
+        0x0F,0xFF
+    };
+    gpio_put(pmod->oledrgb_dc, true);
+    pmod_oledrgb_write(pmod, pixel_data, sizeof(pixel_data));
+    gpio_put(pmod->oledrgb_dc, false);
 }
