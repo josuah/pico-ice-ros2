@@ -19,6 +19,7 @@ target_link_libraries(pico_ice_pmod
     pico_ice_sdk
     pico_ice_usb
     pico_stdio_usb
+    pico_ice_usb
 )
 target_include_directories(pico_ice_pmod PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}/include
