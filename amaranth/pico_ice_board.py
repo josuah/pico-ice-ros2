@@ -19,7 +19,10 @@ class PicoIceBoard(Elaboratable):
         irsensor = platform.request("irsensor", 0)
         pmod_7seg = platform.request("pmod_7seg", 0)
 
+        div = Signal(8)
+
         m = Module()
+
         debug_byte = Signal(8)
 
         m.submodules.p7seg = p7seg = Pmod7Seg(pmod_7seg, debug_byte)
@@ -41,7 +44,7 @@ if __name__ == "__main__":
     platform.add_resources([
 
         Resource("debug", 0,
-            Pins("11", dir="o")),
+            Pins("4 10 3 9 2 8 1 7", dir="o", conn=("pmod", 3))),
 
         Resource("irsensor", 0,
             Subsignal("rx", PinsN("4", dir="i", conn=("pmod", 2)))),

@@ -15,6 +15,10 @@ int main(void) {
     tusb_init();
     stdio_usb_init();
 
+    // temporary for debug
+    for (uint8_t i = 0; i <= 29; i++)
+        gpio_init(i);
+
     // Let the FPGA start and give it a clock
     ice_fpga_init(48);
     ice_fpga_start();
@@ -22,5 +26,6 @@ int main(void) {
     while (1) {
         tud_task();
     }
+
     return 0;
 }
