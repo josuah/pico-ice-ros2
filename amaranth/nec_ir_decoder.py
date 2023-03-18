@@ -74,7 +74,6 @@ class NecIrDecoder(Elaboratable):
             return int(self.freq_hz * ms * 1e-3)
 
         def handle_idle_thres(ms):
-            print(ms_to_ticks(ms))
             with m.If(pwdec.data > ms_to_ticks(ms)):
                 m.d.comb += self.err.eq(1)
                 m.next = "IDLE"
