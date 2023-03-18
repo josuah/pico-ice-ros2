@@ -54,7 +54,9 @@ class NecIrDecoder(Elaboratable):
     def elaborate(self, platform):
         m = Module()
         sample_num = Signal(range(32))
-        sample_buf = Signal(32)
+
+        #debug = platform.request("debug", 0)
+        #m.d.comb += debug.eq(self.rx)
 
         m.submodules.pwdec = pwdec = PulseWidthDecoder(width=32)
         m.d.comb += pwdec.rx.eq(self.rx)
@@ -64,7 +66,6 @@ class NecIrDecoder(Elaboratable):
         sample_thres_ticks = int(self.freq_hz * 1.7e-3)
         idle_thres_ticks   = int(self.freq_hz * 5e-3)
 
-        m.d.comb += self.data.eq(sample_buf)
 
         def handle_idle_thres():
             with m.If(pwdec.data > idle_thres_ticks):
@@ -77,20 +78,15 @@ class NecIrDecoder(Elaboratable):
 
             with m.State("IDLE"):
                 with m.If(pwdec.en & (pwdec.data > prefix_thres_ticks)):
-                    m.next = "PREFIX"
-
-            with m.State("PREFIX"):
-                handle_idle_thres()
-                with m.If(pwdec.en):
                     m.next = "SAMPLE"
 
             with m.State("SAMPLE"):
                 handle_idle_thres()
                 with m.If(pwdec.en):
                     bit = (pwdec.data > sample_thres_ticks)
-                    m.d.sync += sample_buf.eq(Cat(bit, sample_buf))
+                    m.d.sync += self.data.eq(Cat(bit, self.data))
                     m.d.sync += sample_num.eq(sample_num + 1)
-                with m.If(sample_num == 32 - 1):
+                with m.If(sample_num + 1 == 32):
                     m.d.sync += sample_num.eq(0)
                     m.d.sync += self.en.eq(1)
                     m.next = "IDLE"
@@ -99,32 +95,13 @@ class NecIrDecoder(Elaboratable):
 
 if __name__ == "__main__":
     nul = "                                                     "
-    nul = nul + nul + nul
     pfx = "################        "
-    pfx += "# # # # # # # # ### ### ### ### ### ### # ### "
+    pfx += "# # # # # # # # #   #   #   #   #   #   # #   "
 
     rx = nul
-    rx += pfx + "# # ### ### # # # # ### ### # # ### ### ### ###" + nul # Num0
-    rx += pfx + "# # # # ### # # # ### ### ### ### # ### ### ###" + nul # Num1
-    rx += pfx + "### # # # ### # # # # ### ### ### # ### ### ###" + nul # Num2
-    rx += pfx + "# ### # # ### # # # ### # ### ### # ### ### ###" + nul # Num3
-    rx += pfx + "# # ### # ### # # # ### ### # ### # ### ### ###" + nul # Num4
-    rx += pfx + "### # ### # ### # # # # ### # ### # ### ### ###" + nul # Num5
-    rx += pfx + "# ### ### # ### # # # ### # # ### # ### ### ###" + nul # Num6
-    rx += pfx + "# # # ### ### # # # ### ### ### # # ### ### ###" + nul # Num7
-    rx += pfx + "### # # ### ### # # # ### ### # # # ### ### ###" + nul # Num8
-    rx += pfx + "# ### # ### ### # # # ### # ### # # ### ### ###" + nul # Num9
-    rx += pfx + "# ### ### ### # # # # ### # # # ### ### ### ###" + nul # Back
-    rx += pfx + "# ### # ### # # # # ### # ### # ### ### ### ###" + nul # Ch+
-    rx += pfx + "# # # ### # # # # ### ### ### # ### ### ### ###" + nul # Ch-
-    rx += pfx + "### # # ### # # # # # ### # ### ### ### ### ###" + nul # Enter
-    rx += pfx + "### # ### ### # # # # # ### # # ### ### ### ###" + nul # Next
-    rx += pfx + "### # # # # # # # # ### ### ### ### ### ### ###" + nul # Play
-    rx += pfx + "# ### ### # ### # # # ### # # ### # ### ### ###" + nul # Prev
-    rx += pfx + "# # ### # # # # # ### ### # ### ### ### ### ###" + nul # Setup
-    rx += pfx + "# ### # ### ### # # # ### # ### # # ### ### ###" + nul # Stop
-    rx += pfx + "# ### # # # # # # ### # ### ### ### ### ### ###" + nul # Vol+
-    rx += pfx + "# # # # # # # # ### ### ### ### ### ### ### ###" + nul # Vol-
+    rx += pfx + "# # #   #   # # # # #   #   # # #   #   #   #   #" + nul # Num0
+    rx += pfx + "# # # # #   # # # #   #   #   #   # #   #   #   #" + nul # Num1
+    rx += pfx + "#   # # # #   # # # # #   #   #   # #   #   #   #" + nul # Num2
     rx += nul
 
     freq_hz = 2e4 # MHz

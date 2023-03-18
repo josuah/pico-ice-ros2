@@ -16,7 +16,6 @@ class PicoIceBoard(Elaboratable):
     def elaborate(self):
         freq_hz = platform.default_clk_frequency
         led = platform.request("led_g", 0)
-        debug = platform.request("debug", 0)
         irsensor = platform.request("irsensor", 0)
         pmod_7seg = platform.request("pmod_7seg", 0)
 
@@ -33,7 +32,6 @@ class PicoIceBoard(Elaboratable):
 
         # Visual feedback of IR remote action with an LED
         m.d.comb += led.eq(irsensor.rx)
-        m.d.comb += debug.o.eq(irsensor.rx)
 
         return m
 
