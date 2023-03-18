@@ -82,7 +82,6 @@ class NecIrDecoder(Elaboratable):
             with m.State("PREFIX"):
                 handle_idle_thres()
                 with m.If(pwdec.en):
-                    m.d.sync += sample_num.eq(0)
                     m.next = "SAMPLE"
 
             with m.State("SAMPLE"):
@@ -92,6 +91,7 @@ class NecIrDecoder(Elaboratable):
                     m.d.sync += sample_buf.eq(Cat(bit, sample_buf))
                     m.d.sync += sample_num.eq(sample_num + 1)
                 with m.If(sample_num == 32 - 1):
+                    m.d.sync += sample_num.eq(0)
                     m.d.sync += self.en.eq(1)
                     m.next = "IDLE"
 
