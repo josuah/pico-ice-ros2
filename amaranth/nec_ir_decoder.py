@@ -16,20 +16,24 @@ class PulseWidthDecoder(Elaboratable):
 
         # data output
         self.data   = Signal(width)
-        self.en     = Signal()
+        self.done   = Signal()
+        self.high   = Signal()
 
     def elaborate(self, platform):
         m = Module()
         last_rx = Signal(1)
 
         m.d.sync += last_rx.eq(self.rx)
+        m.d.sync += self.data.eq(self.data + 1)
 
-        # on rising edge
+        # on falling edge: send duration of the high period
+        with m.If(last_rx & ~self.rx):
+            m.d.comb += self.high.eq(1)
+
+        # on rising edge: send duration of the high + low period
         with m.If(~last_rx & self.rx):
             m.d.sync += self.data.eq(0)
-            m.d.comb += self.en.eq(1)
-        with m.Else():
-            m.d.sync += self.data.eq(self.data + 1)
+            m.d.comb += self.done.eq(1)
 
         return m
 
@@ -61,34 +65,34 @@ class NecIrDecoder(Elaboratable):
         m.submodules.pwdec = pwdec = PulseWidthDecoder(width=32)
         m.d.comb += pwdec.rx.eq(self.rx)
 
-        # arbitrary values
-        prefix_thres_ticks = int(self.freq_hz * 9e-3)
-        sample_thres_ticks = int(self.freq_hz * 1.7e-3)
-        idle_thres_ticks   = int(self.freq_hz * 5e-3)
+        def ms_to_ticks(ms):
+            return int(self.freq_hz * ms * 1e-3)
 
-
-        def handle_idle_thres():
-            with m.If(pwdec.data > idle_thres_ticks):
+        def handle_idle_thres(ms):
+            with m.If(pwdec.data > ms_to_ticks(ms)):
                 m.d.comb += self.err.eq(1)
                 m.next = "IDLE"
-
-        m.d.sync += self.en.eq(0)
 
         with m.FSM() as fsm:
 
             with m.State("IDLE"):
-                with m.If(pwdec.en & (pwdec.data > prefix_thres_ticks)):
+                with m.If(pwdec.high & (pwdec.data > ms_to_ticks(7))):
+                    m.next = "PREAMBLE"
+
+            with m.State("PREAMBLE"):
+                handle_idle_thres(20)
+                with m.If(pwdec.done):
                     m.next = "SAMPLE"
 
             with m.State("SAMPLE"):
-                handle_idle_thres()
-                with m.If(pwdec.en):
-                    bit = (pwdec.data > sample_thres_ticks)
+                handle_idle_thres(5)
+                with m.If(pwdec.done):
+                    bit = (pwdec.data > ms_to_ticks(1.7))
                     m.d.sync += self.data.eq(Cat(bit, self.data))
                     m.d.sync += sample_num.eq(sample_num + 1)
                 with m.If(sample_num == 32):
                     m.d.sync += sample_num.eq(0)
-                    m.d.sync += self.en.eq(1)
+                    m.d.comb += self.en.eq(1)
                     m.next = "IDLE"
 
         return m
