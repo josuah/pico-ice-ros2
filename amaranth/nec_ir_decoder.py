@@ -7,7 +7,7 @@ __all__ = [ "NecIrDecoder" ]
 
 class PulseWidthDecoder(Elaboratable):
     """
-    Measure the duration of high and low states of a PWM signal.
+    Measure the duration between two rising edges of a PWM signal.
     """
     def __init__(self, *, width=8):
 
@@ -24,8 +24,8 @@ class PulseWidthDecoder(Elaboratable):
 
         m.d.sync += last_rx.eq(self.rx)
 
-        # on falling edge
-        with m.If(last_rx & ~self.rx):
+        # on rising edge
+        with m.If(~last_rx & self.rx):
             m.d.sync += self.data.eq(0)
             m.d.comb += self.en.eq(1)
         with m.Else():
@@ -53,7 +53,7 @@ class NecIrDecoder(Elaboratable):
 
     def elaborate(self, platform):
         m = Module()
-        sample_num = Signal(range(32))
+        sample_num = Signal(range(32 + 1))
 
         #debug = platform.request("debug", 0)
         #m.d.comb += debug.eq(self.rx)
@@ -86,7 +86,7 @@ class NecIrDecoder(Elaboratable):
                     bit = (pwdec.data > sample_thres_ticks)
                     m.d.sync += self.data.eq(Cat(bit, self.data))
                     m.d.sync += sample_num.eq(sample_num + 1)
-                with m.If(sample_num + 1 == 32):
+                with m.If(sample_num == 32):
                     m.d.sync += sample_num.eq(0)
                     m.d.sync += self.en.eq(1)
                     m.next = "IDLE"
