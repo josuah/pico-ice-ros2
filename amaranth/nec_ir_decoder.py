@@ -59,8 +59,6 @@ class NecIrDecoder(Elaboratable):
         m = Module()
         sample_num = Signal(range(32 + 1))
 
-        debug = platform.request("debug", 0)
-
         # New slower clock domain
         m.domains.slow = ClockDomain(local=True)
         clk_div = Signal(8)
@@ -78,22 +76,13 @@ class NecIrDecoder(Elaboratable):
                 m.d.comb += self.err.eq(1)
                 m.next = "IDLE"
 
-        m.d.comb += debug[7].eq(self.rx)
-        m.d.comb += debug[6].eq(pwdec.high)
-        m.d.comb += debug[5].eq(pwdec.done)
-        m.d.comb += debug[4].eq(pwdec.data > ms_to_ticks(1.7))
-        m.d.comb += debug[3].eq(pwdec.data > ms_to_ticks(5))
-        m.d.comb += debug[2].eq(pwdec.data > ms_to_ticks(7))
-
         with m.FSM(domain="slow") as fsm:
 
             with m.State("IDLE"):
-                m.d.comb += debug[0].eq(1)
                 with m.If(pwdec.high & (pwdec.data > ms_to_ticks(7))):
                     m.next = "PREAMBLE"
 
             with m.State("PREAMBLE"):
-                m.d.comb += debug[1].eq(1)
                 handle_idle_thres(20)
                 with m.If(pwdec.done):
                     m.next = "SAMPLE"
@@ -122,7 +111,7 @@ if __name__ == "__main__":
     rx += pfx + "#   # # # #   # # # # #   #   #   # #   #   #   #" + nul # Num2
     rx += nul
 
-    freq_hz = 2e4 # MHz
+    freq_hz = 2e6 # MHz
 
     dut = NecIrDecoder(freq_hz=freq_hz)
 
@@ -134,6 +123,6 @@ if __name__ == "__main__":
 
     sim = Simulator(dut)
     sim.add_clock(1/freq_hz)
-    sim.add_slow_process(bench)
+    sim.add_sync_process(bench)
     with sim.write_vcd(vcd_file=f"{__file__[:-3]}.vcd"):
         sim.run()

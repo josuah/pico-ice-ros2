@@ -2,18 +2,20 @@ import sys
 import os
 sys.path.append(os.path.dirname(__file__) + "/../lib/pico-ice-sdk/amaranth")
 
-# amaranth libraries
+# from amaranth
 from amaranth import *
 from amaranth.build import *
 from amaranth.cli import main
 
-# local libraries
-from pmod_7seg import *
-from nec_ir_decoder import *
+# from pico-ice-sdk
 from pico_ice import *
 
+# from pico-ice-pmod
+from pmod_7seg import *
+from nec_ir_decoder import *
 
-class PicoIceBoard(Elaboratable):
+
+class TopLevel(Elaboratable):
     """
     Top module to test each Pmod with real hardware.
     """
@@ -24,17 +26,15 @@ class PicoIceBoard(Elaboratable):
         irsensor = platform.request("irsensor", 0)
         pmod_7seg = platform.request("pmod_7seg", 0)
 
-        div = Signal(8)
-
         m = Module()
-
         debug_byte = Signal(8)
 
-        m.submodules.p7seg = p7seg = Pmod7Seg(pmod_7seg, debug_byte)
-
+        # IR decoder fed into the 
         m.submodules.irdec = irdec = NecIrDecoder(freq_hz=freq_hz)
         m.d.comb += irdec.rx.eq(irsensor.rx)
 
+        # 7-segment display there for debugging
+        m.submodules.p7seg = p7seg = Pmod7Seg(pmod_7seg, debug_byte)
         with m.If(irdec.en):
             m.d.sync += debug_byte.eq(irdec.data[8:16])
 
@@ -48,12 +48,14 @@ if __name__ == "__main__":
     platform = PicoIcePlatform()
     platform.add_resources([
 
+        # 8-channel logic analyzer plugged directly onto a Pmod
         Resource("debug", 0,
             Pins("4 10 3 9 2 8 1 7", dir="o", conn=("pmod", 3))),
 
+        # The IR sensor only takes 1 signal pin, but it also fits a Pmod
         Resource("irsensor", 0,
             Subsignal("rx", PinsN("4", dir="i", conn=("pmod", 2)))),
 
         Pmod7SegResource("pmod_7seg", 0, pmod=1)
     ])
-    platform.build(PicoIceBoard, do_program=True)
+    platform.build(TopLevel, do_program=True)
