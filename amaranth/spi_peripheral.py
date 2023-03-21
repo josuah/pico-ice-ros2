@@ -52,31 +52,29 @@ class SpiPeripheral(Elaboratable):
         m.d.comb += spi_sampling_edge.eq(~last_spi_clk & self.spi.clk)
         m.d.comb += spi_updating_edge.eq(last_spi_clk & ~self.spi.clk)
 
-        # input data in from straight from the shift register
+        # bind shift registers to the I/O ports
         m.d.comb += self.in_data.eq(shift_copi)
+        m.d.comb += self.spi.cipo.eq(next_cipo[-1])
 
-        # shift data out through the shift register
-        m.d.comb += self.spi.cipo.eq(shift_cipo[-1])
-
+        # enable signals defaults
         m.d.sync += self.in_en.eq(0)
         m.d.comb += self.out_en.eq(self.beg)
-        m.d.sync += shift_cipo.eq(shift_cipo)
+
+        # output shift register
+        m.d.comb += next_cipo.eq(shift_cipo)
+        m.d.sync += shift_cipo.eq(next_cipo)
 
         with m.If(self.spi.cs):
 
             with m.If(spi_sampling_edge):
                 with m.If(shift_count == 7):
                     m.d.sync += self.in_en.eq(1)
-                # The data should be MSB first at the end: insert new data at
-                # the LSB and let it shift all the way up to the MSB
                 m.d.sync += shift_copi.eq(Cat(self.spi.copi, shift_copi[0:7]))
 
             with m.If(spi_updating_edge):
                 with m.If(shift_count == 7):
                     m.d.comb += self.out_en.eq(1)
                 m.d.comb += next_cipo.eq(Cat(C(0), shift_cipo[0:-1]))
-                m.d.sync += shift_cipo.eq(next_cipo)
-                m.d.comb += self.spi.cipo.eq(next_cipo[-1])
                 m.d.sync += shift_count.eq(shift_count + 1)
 
         with m.Else():
