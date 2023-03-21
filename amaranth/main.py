@@ -1,11 +1,16 @@
 import sys
-sys.path.insert(0, "../lib/pico-ice-sdk/amaranth")
+import os
+sys.path.append(os.path.dirname(__file__) + "/../lib/pico-ice-sdk/amaranth")
+
+# amaranth libraries
 from amaranth import *
 from amaranth.build import *
 from amaranth.cli import main
-from pico_ice import *
+
+# local libraries
 from pmod_7seg import *
 from nec_ir_decoder import *
+from pico_ice import *
 
 
 class PicoIceBoard(Elaboratable):
