@@ -4,7 +4,7 @@ from amaranth.sim import *
 from amaranth.hdl.rec import *
 
 
-__all__ = [ "SpiBridge", "spi_layout" ]
+__all__ = [ "SPIPeripheral", "spi_layout" ]
 
 
 # soon to be deprecated by Interface()s
@@ -22,7 +22,7 @@ def spi_layout(mode):
     ]
 
 
-class SpiPeripheral(Elaboratable):
+class SPIPeripheral(Elaboratable):
     def __init__(self):
         self.spi = Record(spi_layout("peripheral")) # soon to be deprecated by Interface()s
         self.in_en = Signal(1)

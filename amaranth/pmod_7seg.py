@@ -13,17 +13,18 @@ __all__ = [
 def Pmod7SegResource(name, number, *args, pmod, common="anode"):
     assert common in ("anode", "cathode")
     return Resource(name, number,
-        Subsignal("segments",  PinsN("1 2 3 4 7 8 9", dir="o", conn=("pmod", pmod))),
-        Subsignal("common",     Pins("10", dir="o", conn=("pmod", pmod))),
+        Subsignal("seg", PinsN("1 2 3 4 7 8 9", dir="o", conn=("pmod", pmod))),
+        Subsignal("com",  Pins("10", dir="o", conn=("pmod", pmod))),
         *args
     )
 
 
 class Pmod7Seg(Elaboratable):
-    def __init__(self, pmod, byte, clk_div=4):
-        self.pmod = pmod
-        self.byte = byte
+    def __init__(self, *, clk_div=4):
         self.clk_div = clk_div
+        self.byte = Signal(8)
+        self.seg = Signal(7)
+        self.com = Signal(1)
 
     def elaborate(self, platform):
         m = Module()
@@ -69,11 +70,11 @@ class Pmod7Seg(Elaboratable):
                 with m.Case(0xF):
                     m.d.comb += seg.eq(0b1110001)
 
-        with m.If(self.pmod.common.o):
-            m.d.comb += self.pmod.segments.o.eq(seg0)
+        with m.If(self.com):
+            m.d.comb += self.seg.eq(seg0)
         with m.Else():
-            m.d.comb += self.pmod.segments.o.eq(seg1)
+            m.d.comb += self.seg.eq(seg1)
 
-        m.d.comb += self.pmod.common.o.eq(cnt[-1])
+        m.d.comb += self.com.eq(cnt[-1])
 
         return m
