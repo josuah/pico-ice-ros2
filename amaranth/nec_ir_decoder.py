@@ -5,26 +5,52 @@ from amaranth.sim import *
 __all__ = [ "NecIrDecoder" ]
 
 
+class Debouncer(Elaboratable):
+    """
+    Debounce a signal by computing an average 
+    """
+
+    def __init__(self, *, width):
+        self.width = width
+
+        self.i = Signal(1)
+        self.o = Signal(1)
+
+    def elaborate(self, platform):
+        m = Module()
+        buffer = Signal(self.width)
+
+        m.d.sync += buffer.eq(Cat(self.i, buffer))
+
+        with m.If(buffer.any() == 0):
+            m.d.sync += self.o.eq(0)
+
+        with m.If(buffer.all() == 1):
+            m.d.sync += self.o.eq(1)
+
+        return m
+
+
 class PulseWidthDecoder(Elaboratable):
     """
     Measure the duration between two rising edges of a PWM signal.
     """
-    def __init__(self, *, width=8):
 
+    def __init__(self, *, width=8):
         # signal input
-        self.rx     = Signal()
+        self.rx     = Signal(1)
 
         # data output
         self.data   = Signal(width)
-        self.done   = Signal()
-        self.high   = Signal()
+        self.done   = Signal(1)
+        self.high   = Signal(1)
 
     def elaborate(self, platform):
         m = Module()
         last_rx = Signal(1)
 
-        m.d.slow += last_rx.eq(self.rx)
-        m.d.slow += self.data.eq(self.data + 1)
+        m.d.sync += last_rx.eq(self.rx)
+        m.d.sync += self.data.eq(self.data + 1)
 
         # on falling edge: send duration of the high period
         with m.If(last_rx & ~self.rx):
@@ -32,7 +58,7 @@ class PulseWidthDecoder(Elaboratable):
 
         # on rising edge: send duration of the high + low period
         with m.If(~last_rx & self.rx):
-            m.d.slow += self.data.eq(0)
+            m.d.sync += self.data.eq(0)
             m.d.comb += self.done.eq(1)
 
         return m
@@ -45,40 +71,48 @@ class NecIrDecoder(Elaboratable):
     """
 
     def __init__(self, *, freq_hz):
-        self.freq_hz = freq_hz / 128
+        self.freq_hz = int(freq_hz)
 
         # ir signal input
-        self.rx     = Signal()
+        self.rx     = Signal(1)
 
         # data output
         self.data   = Signal(32)
-        self.en     = Signal()
-        self.err    = Signal()
+        self.en     = Signal(1)
+        self.err    = Signal(1)
 
     def elaborate(self, platform):
         m = Module()
         sample_num = Signal(range(32 + 1))
 
-        # New slower clock domain
-        m.domains.slow = ClockDomain(local=True)
-        clk_div = Signal(8)
-        m.d.sync += clk_div.eq(clk_div + 1)
-        m.d.comb += ClockSignal("slow").eq(clk_div[-1])
+        m.submodules.debnc = debnc = Debouncer(width=8)
+        m.d.comb += debnc.i.eq(self.rx)
 
         m.submodules.pwdec = pwdec = PulseWidthDecoder(width=32)
-        m.d.comb += pwdec.rx.eq(self.rx)
+        m.d.comb += pwdec.rx.eq(debnc.o)
 
         def ms_to_ticks(ms):
-            return int(self.freq_hz * ms * 1e-3)
+            return int(self.freq_hz * ms * 2e-3)
 
         def handle_idle_thres(ms):
             with m.If(pwdec.data > ms_to_ticks(ms)):
                 m.d.comb += self.err.eq(1)
                 m.next = "IDLE"
 
-        with m.FSM(domain="slow") as fsm:
+        tick = Signal(4)
+        with m.If(tick):
+            m.d.sync += tick.eq(tick + 1)
+
+        pwdec_done_mark = Signal(4)
+        with m.If(pwdec_done_mark):
+            m.d.sync += pwdec_done_mark.eq(pwdec_done_mark + 1)
+        with m.If(pwdec.done):
+            m.d.sync += pwdec_done_mark.eq(1)
+
+        with m.FSM(domain="sync") as fsm:
 
             with m.State("IDLE"):
+                m.d.sync += sample_num.eq(0)
                 with m.If(pwdec.high & (pwdec.data > ms_to_ticks(7))):
                     m.next = "PREAMBLE"
 
@@ -91,12 +125,33 @@ class NecIrDecoder(Elaboratable):
                 handle_idle_thres(5)
                 with m.If(pwdec.done):
                     bit = (pwdec.data > ms_to_ticks(1.7))
-                    m.d.slow += self.data.eq(Cat(bit, self.data))
-                    m.d.slow += sample_num.eq(sample_num + 1)
+                    m.d.sync += self.data.eq(Cat(bit, self.data))
+                    m.d.sync += sample_num.eq(sample_num + 1)
+                    m.d.sync += tick.eq(1)
                 with m.If(sample_num == 32):
-                    m.d.slow += sample_num.eq(0)
+                    m.d.sync += sample_num.eq(0)
                     m.d.comb += self.en.eq(1)
                     m.next = "IDLE"
+
+        debug = platform.request("debug", 0)
+        trig_en = Signal(1)
+        trig_err = Signal(1)
+
+        with m.If(self.en):
+            m.d.sync += trig_en.eq(1)
+
+        with m.If(self.err):
+            m.d.sync += trig_err.eq(1)
+
+        m.d.comb += debug.eq(Cat(
+            debnc.o,
+            tick.any(),
+            pwdec_done_mark.any(),
+            pwdec.data > ms_to_ticks(1.7),
+            fsm.state,
+            sample_num >= 31,
+            self.en
+        ))
 
         return m
 
@@ -111,18 +166,18 @@ if __name__ == "__main__":
     rx += pfx + "#   # # # #   # # # # #   #   #   # #   #   #   #" + nul # Num2
     rx += nul
 
-    freq_hz = 2e6 # MHz
+    freq_hz = 9e3 # KHz
 
     dut = NecIrDecoder(freq_hz=freq_hz)
 
     def bench():
         for ch in rx:
-            for _ in range(int(freq_hz * 562.5e-6)):
+            for _ in range(int(freq_hz / 2 * 562.5e-6)):
                 yield
             yield dut.rx.eq(ch == "#")
 
     sim = Simulator(dut)
-    sim.add_clock(1/freq_hz)
+    sim.add_clock(1 / freq_hz)
     sim.add_sync_process(bench)
     with sim.write_vcd(vcd_file=f"{__file__[:-3]}.vcd"):
         sim.run()
