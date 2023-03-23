@@ -51,13 +51,13 @@ class TopLevel(Elaboratable):
         #m.d.comb += spiperi.spi.cs.eq(spi.cs)
 
         # Hookup the SPI peripheral to the IR sensor
-        #m.d.sync += spiperi.out_data.eq(irdec.data[8:16])
+        #m.d.sync += spiperi.out_data.eq(irdec.data[8:])
 
         #with m.If(spiperi.out_en):
         #    m.d.sync += spiperi.out_data.eq(0)
 
-        #with m.If(irdec.en):
-        #    m.d.sync += irbyte.eq(irdec.data[8:16])
+        with m.If(irdec.en):
+            m.d.sync += irbyte.eq(irdec.data[8:])
         #    m.d.sync += spiperi.out_data.eq(0)
 
         # Visual feedback of IR remote action with an LED
@@ -78,6 +78,6 @@ if __name__ == "__main__":
 
         #SPIResource("spi", 1, cipo="7", copi="10", clk="9", cs_n="8", conn=("pmod", 3), role="peripheral"),
 
-        Resource("debug", 0, Pins("1 2 3 4 7 8 9 10", conn=("pmod", 3), dir="o")),
+        #Resource("debug", 0, Pins("1 2 3 4 7 8 9 10", conn=("pmod", 3), dir="o")),
     ])
     platform.build(TopLevel, do_program=True)

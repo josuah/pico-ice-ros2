@@ -99,16 +99,6 @@ class NecIrDecoder(Elaboratable):
                 m.d.comb += self.err.eq(1)
                 m.next = "IDLE"
 
-        tick = Signal(4)
-        with m.If(tick):
-            m.d.sync += tick.eq(tick + 1)
-
-        pwdec_done_mark = Signal(4)
-        with m.If(pwdec_done_mark):
-            m.d.sync += pwdec_done_mark.eq(pwdec_done_mark + 1)
-        with m.If(pwdec.done):
-            m.d.sync += pwdec_done_mark.eq(1)
-
         with m.FSM(domain="sync") as fsm:
 
             with m.State("IDLE"):
@@ -132,26 +122,6 @@ class NecIrDecoder(Elaboratable):
                     m.d.sync += sample_num.eq(0)
                     m.d.comb += self.en.eq(1)
                     m.next = "IDLE"
-
-        debug = platform.request("debug", 0)
-        trig_en = Signal(1)
-        trig_err = Signal(1)
-
-        with m.If(self.en):
-            m.d.sync += trig_en.eq(1)
-
-        with m.If(self.err):
-            m.d.sync += trig_err.eq(1)
-
-        m.d.comb += debug.eq(Cat(
-            debnc.o,
-            tick.any(),
-            pwdec_done_mark.any(),
-            pwdec.data > ms_to_ticks(1.7),
-            fsm.state,
-            sample_num >= 31,
-            self.en
-        ))
 
         return m
 
