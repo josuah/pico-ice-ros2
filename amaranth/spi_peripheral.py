@@ -96,13 +96,15 @@ class SPIPeripheral(Elaboratable):
                     m.d.sync += reload_rx.eq(1)
 
         # reload the shift registers with the next data
+        # - for 'tx', 'tx.data' was buffereized into 'next_cipo'
+        # - for 'rx', we do not need to bufferize as we drive 'tx.data' ourself
         with m.If(reload_rx):
             m.d.sync += self.rx.valid.eq(1)
             m.d.sync += self.rx.data.eq(shift_copi)
         with m.If(reload_tx):
             m.d.sync += self.tx.ready.eq(1)
             m.d.sync += shift_cipo.eq(next_cipo)
-            m.d.sync += next_cipo.eq(0)
+            m.d.sync += next_cipo.eq(0xFF)
 
         return m
 
