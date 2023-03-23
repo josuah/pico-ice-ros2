@@ -51,14 +51,34 @@ class TopLevel(Elaboratable):
         m.d.comb += spiperi.spi.cs.eq(spi.cs)
 
         # Hookup the SPI peripheral to the IR sensor
-        with m.If(spiperi.out_en):
-            m.d.sync += spiperi.out_data.eq(0)
+        with m.If(spiperi.tx.valid):
+            m.d.sync += spiperi.tx.data.eq(0)
         with m.If(irdec.en):
+            m.d.sync += spiperi.tx.data.eq(irdec.data[8:])
             m.d.sync += irbyte.eq(irdec.data[8:])
-            m.d.sync += spiperi.out_data.eq(irdec.data[8:])
 
         # Visual feedback of IR remote action with an LED
         m.d.comb += led.eq(irsensor.rx)
+
+        spiperi_tx_valid_mark = Signal(4)
+        with m.If(spiperi_tx_valid_mark):
+            m.d.sync += spiperi_tx_valid_mark.eq(spiperi_tx_valid_mark + 1)
+        with m.If(spiperi.tx.valid):
+            m.d.sync += spiperi_tx_valid_mark.eq(1)
+
+        irdec_en_mark = Signal(4)
+        with m.If(irdec_en_mark):
+            m.d.sync += irdec_en_mark.eq(irdec_en_mark + 1)
+        with m.If(irdec.en):
+            m.d.sync += irdec_en_mark.eq(1)
+
+        debug = platform.request("debug", 0)
+        m.d.comb += debug.o.eq(Cat(
+            1,
+            spiperi_tx_valid_mark.any(),
+            irdec_en_mark.any(),
+            1
+        ))
 
         return m
 
