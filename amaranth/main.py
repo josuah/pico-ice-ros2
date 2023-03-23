@@ -15,6 +15,7 @@ from pico_ice import *
 from pmod_7seg import *
 from nec_ir_decoder import *
 from spi_peripheral import *
+from debouncer import *
 
 
 class TopLevel(Elaboratable):
@@ -42,22 +43,30 @@ class TopLevel(Elaboratable):
         m.d.comb += pmod_7seg.seg.eq(p7seg.seg)
         m.d.comb += p7seg.byte.eq(irbyte)
 
+        m.submodules.spi_cs = spi_cs = Debouncer(width=8)
+        m.d.comb += spi_cs.i.eq(spi.cs)
+        m.submodules.spi_clk = spi_clk = Debouncer(width=8)
+        m.d.comb += spi_clk.i.eq(spi.clk)
+        m.submodules.spi_copi = spi_copi = Debouncer(width=8)
+        m.d.comb += spi_copi.i.eq(spi.copi)
+
         # SPI peripheral bridge for querying the IR data
         m.submodules.spiperi = spiperi = SPIPeripheral()
         m.d.comb += spi.cipo.oe.eq(1)
         m.d.comb += spi.cipo.o.eq(spiperi.spi.cipo)
-        m.d.comb += spiperi.spi.copi.eq(spi.copi)
-        m.d.comb += spiperi.spi.clk.eq(spi.clk)
-        m.d.comb += spiperi.spi.cs.eq(spi.cs)
+        m.d.comb += spiperi.spi.copi.eq(spi_copi.o)
+        m.d.comb += spiperi.spi.clk.eq(spi_clk.o)
+        m.d.comb += spiperi.spi.cs.eq(spi_cs.o)
 
-        # Hookup the SPI peripheral to the IR sensor
-        with m.If(spiperi.tx.valid):
-            m.d.sync += spiperi.tx.data.eq(0)
-        with m.If(irdec.en):
+        # hookup the SPI peripheral to the IR sensor
+        with m.If(spiperi.tx.ready):
+            m.d.sync += spiperi.tx.valid.eq(0)
+        with m.If(irdec.valid):
+            m.d.sync += spiperi.tx.valid.eq(1)
             m.d.sync += spiperi.tx.data.eq(irdec.data[8:])
             m.d.sync += irbyte.eq(irdec.data[8:])
 
-        # Visual feedback of IR remote action with an LED
+        # visual feedback of IR remote action with an LED
         m.d.comb += led.eq(irsensor.rx)
 
         spiperi_tx_valid_mark = Signal(4)
@@ -66,18 +75,18 @@ class TopLevel(Elaboratable):
         with m.If(spiperi.tx.valid):
             m.d.sync += spiperi_tx_valid_mark.eq(1)
 
-        irdec_en_mark = Signal(4)
-        with m.If(irdec_en_mark):
-            m.d.sync += irdec_en_mark.eq(irdec_en_mark + 1)
-        with m.If(irdec.en):
-            m.d.sync += irdec_en_mark.eq(1)
+        irdec_valid_mark = Signal(4)
+        with m.If(irdec_valid_mark):
+            m.d.sync += irdec_valid_mark.eq(irdec_valid_mark + 1)
+        with m.If(irdec.valid):
+            m.d.sync += irdec_valid_mark.eq(1)
 
         debug = platform.request("debug", 0)
         m.d.comb += debug.o.eq(Cat(
             1,
             spiperi_tx_valid_mark.any(),
-            irdec_en_mark.any(),
-            1
+            irdec_valid_mark.any(),
+            irdec.rx
         ))
 
         return m

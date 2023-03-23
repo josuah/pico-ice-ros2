@@ -87,7 +87,7 @@ class SPIPeripheral(Elaboratable):
         with m.If(self.spi.cs):
             with m.If(updating_edge):
                 m.d.sync += shift_cipo.eq(Cat(0, shift_cipo))
-                with m.If(shift_count == 7):
+                with m.If(shift_count == 0):
                     m.d.sync += reload_tx.eq(1)
             with m.If(sampling_edge):
                 m.d.sync += shift_copi.eq(Cat(self.spi.copi, shift_copi[0:7]))

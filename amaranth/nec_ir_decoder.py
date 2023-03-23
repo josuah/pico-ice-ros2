@@ -53,7 +53,7 @@ class NecIrDecoder(Elaboratable):
 
         # data output
         self.data   = Signal(32)
-        self.en     = Signal(1)
+        self.valid  = Signal(1)
         self.err    = Signal(1)
 
     def elaborate(self, platform):
@@ -94,7 +94,7 @@ class NecIrDecoder(Elaboratable):
                     m.d.sync += sample_num.eq(sample_num + 1)
                 with m.If(sample_num == 32):
                     m.d.sync += sample_num.eq(0)
-                    m.d.comb += self.en.eq(1)
+                    m.d.comb += self.valid.eq(1)
                     m.next = "IDLE"
 
         return m
