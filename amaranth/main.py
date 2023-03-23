@@ -27,7 +27,7 @@ class TopLevel(Elaboratable):
         led = platform.request("led_g", 0)
         irsensor = platform.request("irsensor", 0)
         pmod_7seg = platform.request("pmod_7seg", 0)
-        #spi = platform.request("spi", 1)
+        spi = platform.request("spi", 1)
 
         m = Module()
         irbyte = Signal(8)
@@ -43,22 +43,19 @@ class TopLevel(Elaboratable):
         m.d.comb += p7seg.byte.eq(irbyte)
 
         # SPI peripheral bridge for querying the IR data
-        #m.submodules.spiperi = spiperi = SPIPeripheral()
-        #m.d.comb += spi.cipo.oe.eq(1)
-        #m.d.comb += spi.cipo.o.eq(spiperi.spi.cipo)
-        #m.d.comb += spiperi.spi.copi.eq(spi.copi)
-        #m.d.comb += spiperi.spi.clk.eq(spi.clk)
-        #m.d.comb += spiperi.spi.cs.eq(spi.cs)
+        m.submodules.spiperi = spiperi = SPIPeripheral()
+        m.d.comb += spi.cipo.oe.eq(1)
+        m.d.comb += spi.cipo.o.eq(spiperi.spi.cipo)
+        m.d.comb += spiperi.spi.copi.eq(spi.copi)
+        m.d.comb += spiperi.spi.clk.eq(spi.clk)
+        m.d.comb += spiperi.spi.cs.eq(spi.cs)
 
         # Hookup the SPI peripheral to the IR sensor
-        #m.d.sync += spiperi.out_data.eq(irdec.data[8:])
-
-        #with m.If(spiperi.out_en):
-        #    m.d.sync += spiperi.out_data.eq(0)
-
+        with m.If(spiperi.out_en):
+            m.d.sync += spiperi.out_data.eq(0)
         with m.If(irdec.en):
             m.d.sync += irbyte.eq(irdec.data[8:])
-        #    m.d.sync += spiperi.out_data.eq(0)
+            m.d.sync += spiperi.out_data.eq(irdec.data[8:])
 
         # Visual feedback of IR remote action with an LED
         m.d.comb += led.eq(irsensor.rx)
@@ -76,8 +73,9 @@ if __name__ == "__main__":
 
         Pmod7SegResource("pmod_7seg", 0, pmod=1),
 
-        #SPIResource("spi", 1, cipo="7", copi="10", clk="9", cs_n="8", conn=("pmod", 3), role="peripheral"),
+        SPIResource("spi", 1, cipo="7", copi="10", clk="9", cs_n="8", conn=("pmod", 3), role="peripheral"),
 
+        Resource("debug", 0, Pins("1 2 3 4", conn=("pmod", 3), dir="o")),
         #Resource("debug", 0, Pins("1 2 3 4 7 8 9 10", conn=("pmod", 3), dir="o")),
     ])
     platform.build(TopLevel, do_program=True)

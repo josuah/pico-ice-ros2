@@ -19,24 +19,20 @@ int main(void) {
     ice_fpga_init(48);
     ice_fpga_start();
 
-    for (int i = 0; i <= 7; i++) {
-        gpio_init(i);
-    }
-
     // SPI bus configuration
-    //gpio_set_function(ice_pmod_3.gpio.io7, GPIO_FUNC_SPI);
-    //gpio_set_function(ice_pmod_3.gpio.io8, GPIO_FUNC_SPI);
-    //gpio_set_function(ice_pmod_3.gpio.io9, GPIO_FUNC_SPI);
-    //gpio_set_function(ice_pmod_3.gpio.io10, GPIO_FUNC_SPI);
-    //gpio_set_dir(ice_pmod_3.gpio.io7, GPIO_IN);
-    //gpio_set_dir(ice_pmod_3.gpio.io8, GPIO_OUT);
-    //gpio_set_dir(ice_pmod_3.gpio.io9, GPIO_OUT);
-    //gpio_set_dir(ice_pmod_3.gpio.io10, GPIO_OUT);
-    //spi_init(spi0, 100000);
+    gpio_set_function(ice_pmod_3.gpio.io7, GPIO_FUNC_SPI);
+    gpio_set_function(ice_pmod_3.gpio.io8, GPIO_FUNC_SPI);
+    gpio_set_function(ice_pmod_3.gpio.io9, GPIO_FUNC_SPI);
+    gpio_set_function(ice_pmod_3.gpio.io10, GPIO_FUNC_SPI);
+    gpio_set_dir(ice_pmod_3.gpio.io7, GPIO_IN);
+    gpio_set_dir(ice_pmod_3.gpio.io8, GPIO_OUT);
+    gpio_set_dir(ice_pmod_3.gpio.io9, GPIO_OUT);
+    gpio_set_dir(ice_pmod_3.gpio.io10, GPIO_OUT);
+    spi_init(spi0, 100000);
 
     while (1) {
         tud_task();
-        //spi_write_blocking(spi0, "\x01\x02\x03\x04\x05", 5);
+        spi_write_blocking(spi0, "\x01\x02\x03\x04\x05", 5);
     }
 
     return 0;

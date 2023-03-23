@@ -117,7 +117,6 @@ class NecIrDecoder(Elaboratable):
                     bit = (pwdec.data > ms_to_ticks(1.7))
                     m.d.sync += self.data.eq(Cat(bit, self.data))
                     m.d.sync += sample_num.eq(sample_num + 1)
-                    m.d.sync += tick.eq(1)
                 with m.If(sample_num == 32):
                     m.d.sync += sample_num.eq(0)
                     m.d.comb += self.en.eq(1)
