@@ -1,6 +1,5 @@
 from amaranth import *
 from amaranth.sim import *
-from debouncer import *
 
 
 __all__ = [ "NecIrDecoder" ]
@@ -60,14 +59,11 @@ class NecIrDecoder(Elaboratable):
         m = Module()
         sample_num = Signal(range(32 + 1))
 
-        m.submodules.debnc = debnc = Debouncer(width=8)
-        m.d.comb += debnc.i.eq(self.rx)
-
         m.submodules.pwdec = pwdec = PulseWidthDecoder(width=32)
-        m.d.comb += pwdec.rx.eq(debnc.o)
+        m.d.comb += pwdec.rx.eq(self.rx)
 
         def ms_to_ticks(ms):
-            return int(self.freq_hz * ms * 2e-3)
+            return int(self.freq_hz * ms * 1e-3)
 
         def handle_idle_thres(ms):
             with m.If(pwdec.data > ms_to_ticks(ms)):
@@ -116,7 +112,7 @@ if __name__ == "__main__":
 
     def bench():
         for ch in rx:
-            for _ in range(int(freq_hz / 2 * 562.5e-6)):
+            for _ in range(int(freq_hz * 562.5e-6)):
                 yield
             yield dut.rx.eq(ch == "#")
 

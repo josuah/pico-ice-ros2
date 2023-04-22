@@ -33,9 +33,13 @@ class TopLevel(Elaboratable):
         m = Module()
         irbyte = Signal(8)
 
-        # IR decoder fed into the 
+        # Debouncer
+        m.submodules.debnc = debnc = Debouncer(width=32)
+        m.d.comb += debnc.i.eq(irsensor.rx)
+
+        # IR decoder fed into the 7-segment and SPI interface
         m.submodules.irdec = irdec = NecIrDecoder(freq_hz=freq_hz)
-        m.d.comb += irdec.rx.eq(irsensor.rx)
+        m.d.comb += irdec.rx.eq(debnc.o)
 
         # 7-segment display there for debugging
         m.submodules.p7seg = p7seg = Pmod7Seg()
@@ -69,26 +73,6 @@ class TopLevel(Elaboratable):
         # visual feedback of IR remote action with an LED
         m.d.comb += led.eq(irsensor.rx)
 
-        spiperi_tx_valid_mark = Signal(4)
-        with m.If(spiperi_tx_valid_mark):
-            m.d.sync += spiperi_tx_valid_mark.eq(spiperi_tx_valid_mark + 1)
-        with m.If(spiperi.tx.valid):
-            m.d.sync += spiperi_tx_valid_mark.eq(1)
-
-        irdec_valid_mark = Signal(4)
-        with m.If(irdec_valid_mark):
-            m.d.sync += irdec_valid_mark.eq(irdec_valid_mark + 1)
-        with m.If(irdec.valid):
-            m.d.sync += irdec_valid_mark.eq(1)
-
-        debug = platform.request("debug", 0)
-        m.d.comb += debug.o.eq(Cat(
-            1,
-            spiperi_tx_valid_mark.any(),
-            irdec_valid_mark.any(),
-            irdec.rx
-        ))
-
         return m
 
 
@@ -105,6 +89,5 @@ if __name__ == "__main__":
         SPIResource("spi", 1, cipo="7", copi="10", clk="9", cs_n="8", conn=("pmod", 3), role="peripheral"),
 
         Resource("debug", 0, Pins("1 2 3 4", conn=("pmod", 3), dir="o")),
-        #Resource("debug", 0, Pins("1 2 3 4 7 8 9 10", conn=("pmod", 3), dir="o")),
     ])
-    platform.build(TopLevel, do_program=True)
+    platform.build(TopLevel, do_program=True, program_opts={"dfu_alt": 1})
