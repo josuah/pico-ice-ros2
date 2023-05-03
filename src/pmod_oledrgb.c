@@ -99,6 +99,16 @@ static inline void pmod_oledrgb_cmd_5(const pmod_2x_t *pmod, uint8_t a1, uint8_t
     pmod_oledrgb_write(pmod, buf, sizeof(buf));
 }
 
+void pmod_oledrgb_send(const pmod_2x_t *pmod, uint8_t x, uint8_t y, const uint8_t *data, size_t data_size)
+{
+    pmod_oledrgb_cmd_3(pmod, SSD1331_COL_ADDRESS, x, 95);
+    pmod_oledrgb_cmd_3(pmod, SSD1331_ROW_ADDRESS, y, 63);
+    ice_usb_sleep_ms(5);
+    gpio_put(pmod->oledrgb_dc, true);
+    pmod_oledrgb_write(pmod, data, data_size);
+    gpio_put(pmod->oledrgb_dc, false);
+}
+
 void pmod_oledrgb_init(const pmod_2x_t *pmod) {
     // spi pin init
     pmod_spi_init(&pmod->row.top);
@@ -166,21 +176,4 @@ void pmod_oledrgb_init(const pmod_2x_t *pmod) {
     // Turn the display on
     pmod_oledrgb_cmd_1(pmod, SSD1331_DISPLAY_ON_NORMAL);
     ice_usb_sleep_ms(300); // at least 25 ms
-
-    pmod_oledrgb_cmd_3(pmod, SSD1331_COL_ADDRESS, 10, 95);
-    pmod_oledrgb_cmd_3(pmod, SSD1331_ROW_ADDRESS, 15, 63);
-    ice_usb_sleep_ms(5);
-
-#define X 0xFF,0xFF
-#define _ 0x00,0x00
-
-    static const uint8_t pixel_data[] = {
-        X,_,X,_,X,_,X,_,X,_,X,_,X,_,X,_,
-        X,_,X,_,X,_,X,_,X,_,X,_,X,_,X,_,
-        X,_,X,_,X,_,X,_,X,_,X,_,X,_,X,_,
-        X,_,X,_,X,_,X,_,X,_,X,_,X,_,X,_,
-    };
-    gpio_put(pmod->oledrgb_dc, true);
-    pmod_oledrgb_write(pmod, pixel_data, sizeof(pixel_data));
-    gpio_put(pmod->oledrgb_dc, false);
 }

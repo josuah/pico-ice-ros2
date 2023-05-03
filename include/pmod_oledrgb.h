@@ -33,3 +33,4 @@
 #include "pmod.h"
 
 void pmod_oledrgb_init(const pmod_2x_t *pmod);
+void pmod_oledrgb_send(const pmod_2x_t *pmod, uint8_t x, uint8_t y, const uint8_t *data, size_t data_size);
