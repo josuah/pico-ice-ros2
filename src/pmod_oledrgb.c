@@ -24,12 +24,22 @@
 
 // https://digilent.com/reference/pmod/pmodoledrgb/reference-manual
 
+// pico-sdk
 #include "hardware/gpio.h"
 #include "pico/stdlib.h"
+
+// pico-ice-sdk
 #include "ice_usb.h"
+
+// pmod
 #include "pmod.h"
 #include "pmod_spi.h"
 #include "pmod_oledrgb.h"
+
+#define oledrgb_dc                      spi.io7
+#define oledrgb_rst_n                   spi.io8
+#define oledrgb_14v_en                  spi.io9
+#define oledrgb_gnd_en                  spi.io10
 
 #define SSD1331_COL_ADDRESS             0x15
 #define SSD1331_ROW_ADDRESS             0x75
@@ -63,24 +73,30 @@
 #define SSD1331_V_COMH                  0xBE
 #define SSD1331_LOCK_STATE              0xFD
 
-#define OP1(addr)                       1, addr
-#define OP2(addr, v1)                   2, addr, v1
-#define OP3(addr, v1,v2)                3, addr, v1,v2
-#define OP5(addr, v1,v2,v3,v4)          5, addr, v1,v2,v3,v4
-#define OP8(addr, v1,v2,v3,v4,v5,v6,v7) 8, addr, v1,v2,v3,v4,v5,v6,v7
-#define OP11(addr, v1,v2,v3,v4,v5,v6,v7,v8,v9,v10)  11, addr, v1,v2,v3,v4,v5,v6,v7,v8,v9,v10
-#define END                             0
-
 static void pmod_oledrgb_write(const pmod_2x_t *pmod, uint8_t const *data, size_t size) {
     pmod_spi_chip_select(&pmod->row.top, pmod->spi.cs_n);
     pmod_spi_write(&pmod->row.top, data, size);
     pmod_spi_chip_deselect(&pmod->row.top, pmod->spi.cs_n);
 }
 
-static void pmod_oledrgb_run(const pmod_2x_t *pmod, uint8_t const *opcode) {
-    for (uint8_t const *pos = opcode; *pos != 0; pos += 1 + *pos) {
-        pmod_oledrgb_write(pmod, pos + 1, *pos);
-    }
+static inline void pmod_oledrgb_cmd_1(const pmod_2x_t *pmod, uint8_t a1) {
+    uint8_t buf[] = { a1 };
+    pmod_oledrgb_write(pmod, buf, sizeof(buf));
+}
+
+static inline void pmod_oledrgb_cmd_2(const pmod_2x_t *pmod, uint8_t a1, uint8_t a2) {
+    uint8_t buf[] = { a1, a2 };
+    pmod_oledrgb_write(pmod, buf, sizeof(buf));
+}
+
+static inline void pmod_oledrgb_cmd_3(const pmod_2x_t *pmod, uint8_t a1, uint8_t a2, uint8_t a3) {
+    uint8_t buf[] = { a1, a2, a3 };
+    pmod_oledrgb_write(pmod, buf, sizeof(buf));
+}
+
+static inline void pmod_oledrgb_cmd_5(const pmod_2x_t *pmod, uint8_t a1, uint8_t a2, uint8_t a3, uint8_t a4, uint8_t a5) {
+    uint8_t buf[] = { a1, a2, a3, a4, a5 };
+    pmod_oledrgb_write(pmod, buf, sizeof(buf));
 }
 
 void pmod_oledrgb_init(const pmod_2x_t *pmod) {
@@ -120,54 +136,49 @@ void pmod_oledrgb_init(const pmod_2x_t *pmod) {
     ice_usb_sleep_ms(1); // at least 3 us
 
     // Send the configuration
-    static const uint8_t config_opcode[] = {
-        //OP2(SSD1331_LOCK_STATE, 0x12),
-        OP1(SSD1331_DISPLAY_OFF),
-        OP2(SSD1331_REMAP_AND_COLOR_DEPTH, 0x72),
-        OP2(SSD1331_DISPLAY_START_LINE, 0),
-        OP2(SSD1331_DISPLAY_OFFSET, 0),
-        OP1(SSD1331_DISPLAY_MODE_NORMAL),
-        OP2(SSD1331_MULTIPLEX_RATIO, 0x3F),
-        OP2(SSD1331_MASTER_CONFIG, 0x8E),
-        OP2(SSD1331_POWER_SAVE_MODE, 0x0B),
-        OP2(SSD1331_PHASE_PERIOD_ADJUST, 0x31),
-        OP2(SSD1331_CLOCK_DIV_OSC_FREQ, 0xF0),
-        OP2(SSD1331_PRE_CHARGE_SPEED_A, 0x64),
-        OP2(SSD1331_PRE_CHARGE_SPEED_B, 0x78),
-        OP2(SSD1331_PRE_CHARGE_SPEED_C, 0x64),
-        OP2(SSD1331_PRE_CHARGE_LEVEL, 0x3A),
-        OP2(SSD1331_V_COMH, 0x3E),
-        OP2(SSD1331_MASTER_CURRENT_CONTROL, 0x06),
-        OP2(SSD1331_CONTRAST_FOR_A, 0x91),
-        OP2(SSD1331_CONTRAST_FOR_B, 0x50),
-        OP2(SSD1331_CONTRAST_FOR_C, 0x7D),
-        OP1(SSD1331_DEACTIVATE_SCROLLING),
-        OP5(SSD1331_CLEAR_WINDOW, 0, 0, 95, 63),
-        END
-    };
-    //pmod_oledrgb_run(pmod, config_opcode);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_LOCK_STATE, 0x12);
+    pmod_oledrgb_cmd_1(pmod, SSD1331_DISPLAY_OFF);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_REMAP_AND_COLOR_DEPTH, 0x72);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_DISPLAY_START_LINE, 0);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_DISPLAY_OFFSET, 0);
+    pmod_oledrgb_cmd_1(pmod, SSD1331_DISPLAY_MODE_NORMAL);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_MULTIPLEX_RATIO, 0x3F);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_MASTER_CONFIG, 0x8E);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_POWER_SAVE_MODE, 0x0B);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_PHASE_PERIOD_ADJUST, 0x31);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_CLOCK_DIV_OSC_FREQ, 0xF0);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_PRE_CHARGE_SPEED_A, 0x64);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_PRE_CHARGE_SPEED_B, 0x78);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_PRE_CHARGE_SPEED_C, 0x64);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_PRE_CHARGE_LEVEL, 0x3A);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_V_COMH, 0x3E);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_MASTER_CURRENT_CONTROL, 0x06);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_CONTRAST_FOR_A, 0x91);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_CONTRAST_FOR_B, 0x50);
+    pmod_oledrgb_cmd_2(pmod, SSD1331_CONTRAST_FOR_C, 0x7D);
+    pmod_oledrgb_cmd_1(pmod, SSD1331_DEACTIVATE_SCROLLING);
+    pmod_oledrgb_cmd_5(pmod, SSD1331_CLEAR_WINDOW, 0, 0, 95, 63);
 
     // Enable the positive power rail
     gpio_put(pmod->oledrgb_14v_en, true);
     ice_usb_sleep_ms(200); // at least 100 ms
 
     // Turn the display on
-    static const uint8_t turn_on_opcode[] = {
-        OP1(SSD1331_DISPLAY_ON_NORMAL),
-        END
-    };
-    //pmod_oledrgb_run(pmod, turn_on_opcode);
+    pmod_oledrgb_cmd_1(pmod, SSD1331_DISPLAY_ON_NORMAL);
     ice_usb_sleep_ms(300); // at least 25 ms
 
-    static const uint8_t test_opcode[] = {
-        OP3(SSD1331_COL_ADDRESS, 10, 95),
-        OP3(SSD1331_ROW_ADDRESS, 15, 63)
-    };
-    pmod_oledrgb_run(pmod, test_opcode);
+    pmod_oledrgb_cmd_3(pmod, SSD1331_COL_ADDRESS, 10, 95);
+    pmod_oledrgb_cmd_3(pmod, SSD1331_ROW_ADDRESS, 15, 63);
     ice_usb_sleep_ms(5);
 
+#define X 0xFF,0xFF
+#define _ 0x00,0x00
+
     static const uint8_t pixel_data[] = {
-        0x0F,0xFF
+        X,_,X,_,X,_,X,_,X,_,X,_,X,_,X,_,
+        X,_,X,_,X,_,X,_,X,_,X,_,X,_,X,_,
+        X,_,X,_,X,_,X,_,X,_,X,_,X,_,X,_,
+        X,_,X,_,X,_,X,_,X,_,X,_,X,_,X,_,
     };
     gpio_put(pmod->oledrgb_dc, true);
     pmod_oledrgb_write(pmod, pixel_data, sizeof(pixel_data));

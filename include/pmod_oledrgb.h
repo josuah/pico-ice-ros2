@@ -24,14 +24,12 @@
 
 #pragma once
 
+// libc
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "pmod.h"
 
-#define oledrgb_dc          spi.io7
-#define oledrgb_rst_n       spi.io8
-#define oledrgb_14v_en      spi.io9
-#define oledrgb_gnd_en      spi.io10
+// pmod
+#include "pmod.h"
 
 void pmod_oledrgb_init(const pmod_2x_t *pmod);
