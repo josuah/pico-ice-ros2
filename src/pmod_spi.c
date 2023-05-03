@@ -22,13 +22,20 @@
  * SOFTWARE.
  */
 
+// libc
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+
+// pico-sdk
 #include "hardware/sync.h"
 #include "pico/stdlib.h"
+
+// pico-ice-sdk
 #include "boards/pico_ice.h"
+
+// pmod
 #include "pmod_spi.h"
 #include "pmod.h"
 
@@ -44,9 +51,9 @@ void pmod_spi_init(const pmod_1x_t *pmod) {
     gpio_set_dir(pmod->spi.clk, GPIO_OUT);
 }
 
-static void delay(void)
+static inline void delay(void)
 {
-    sleep_us(100);
+    sleep_us(1);
 }
 
 static uint8_t transfer_byte(const pmod_1x_t *pmod, uint8_t tx) {

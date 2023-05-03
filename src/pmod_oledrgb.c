@@ -103,7 +103,6 @@ void pmod_oledrgb_send(const pmod_2x_t *pmod, uint8_t x, uint8_t y, const uint8_
 {
     pmod_oledrgb_cmd_3(pmod, SSD1331_COL_ADDRESS, x, 95);
     pmod_oledrgb_cmd_3(pmod, SSD1331_ROW_ADDRESS, y, 63);
-    ice_usb_sleep_ms(5);
     gpio_put(pmod->oledrgb_dc, true);
     pmod_oledrgb_write(pmod, data, data_size);
     gpio_put(pmod->oledrgb_dc, false);
@@ -137,13 +136,13 @@ void pmod_oledrgb_init(const pmod_2x_t *pmod) {
     gpio_init(pmod->oledrgb_gnd_en);
     gpio_put(pmod->oledrgb_gnd_en, true);
     gpio_set_dir(pmod->oledrgb_gnd_en, GPIO_OUT);
-    ice_usb_sleep_ms(1); // at least 20 us
+    sleep_us(20); // at least 20 us
 
     // Issue a reset pulse
     gpio_put(pmod->oledrgb_rst_n, !true);
-    ice_usb_sleep_ms(1); // at least 3 us
+    sleep_us(3); // at least 3 us
     gpio_put(pmod->oledrgb_rst_n, !false);
-    ice_usb_sleep_ms(1); // at least 3 us
+    sleep_us(3); // at least 3 us
 
     // Send the configuration
     pmod_oledrgb_cmd_2(pmod, SSD1331_LOCK_STATE, 0x12);
@@ -171,9 +170,9 @@ void pmod_oledrgb_init(const pmod_2x_t *pmod) {
 
     // Enable the positive power rail
     gpio_put(pmod->oledrgb_14v_en, true);
-    ice_usb_sleep_ms(200); // at least 100 ms
+    ice_usb_sleep_ms(25); // at least 25 ms
 
     // Turn the display on
     pmod_oledrgb_cmd_1(pmod, SSD1331_DISPLAY_ON_NORMAL);
-    ice_usb_sleep_ms(300); // at least 25 ms
+    ice_usb_sleep_ms(100); // typical 100 ms
 }
