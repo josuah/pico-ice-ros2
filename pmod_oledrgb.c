@@ -99,8 +99,7 @@ static inline void pmod_oledrgb_cmd_5(const pmod_2x_t *pmod, uint8_t a1, uint8_t
     pmod_oledrgb_write(pmod, buf, sizeof(buf));
 }
 
-void pmod_oledrgb_send(const pmod_2x_t *pmod, uint8_t x, uint8_t y, const uint8_t *data, size_t data_size)
-{
+void pmod_oledrgb_send(const pmod_2x_t *pmod, uint8_t x, uint8_t y, const uint8_t *data, size_t data_size) {
     pmod_oledrgb_cmd_3(pmod, SSD1331_COL_ADDRESS, x, 95);
     pmod_oledrgb_cmd_3(pmod, SSD1331_ROW_ADDRESS, y, 63);
     gpio_put(pmod->oledrgb_dc, true);
