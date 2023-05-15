@@ -14,8 +14,7 @@ add_executable(pico_ice_pmod
     usb_descriptors.c
     pmod_spi.c
     pmod_oledrgb.c
-)
-
+    )
 target_link_libraries(pico_ice_pmod
     pico_stdlib
     pico_ice_sdk
@@ -23,13 +22,11 @@ target_link_libraries(pico_ice_pmod
     pico_stdio_usb
     pico_ice_usb
     hardware_spi
-)
-
+    )
 target_include_directories(pico_ice_pmod PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}
-)
+    )
 
 pico_enable_stdio_usb(pico_ice_pmod 1)
 pico_enable_stdio_uart(pico_ice_pmod 0)
-
 pico_add_extra_outputs(pico_ice_pmod)

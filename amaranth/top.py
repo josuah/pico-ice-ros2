@@ -1,17 +1,16 @@
-import sys
-import os
-sys.path.append(os.path.dirname(__file__) + "/../lib/pico-ice-sdk/amaranth")
+import sys, os
+sys.path.append(os.path.dirname(__file__) + "/../pico-ice-sdk/amaranth")
 
-# from amaranth
+# amaranth
 from amaranth import *
 from amaranth.build import *
 from amaranth.cli import main
 from amaranth_boards.resources import *
 
-# from pico-ice-sdk
+# pico-ice-sdk
 from pico_ice import *
 
-# from pico-ice-pmod
+# pico-ice-pmod
 from pmod_7seg import *
 from nec_ir_decoder import *
 from spi_peripheral import *
