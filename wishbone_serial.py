@@ -1,5 +1,6 @@
 import argparse
 import serial
+import struct
 
 
 class WishboneError(Exception):
@@ -18,20 +19,18 @@ def wishbone_serial(port, addr, data):
 
     # TODO: support buffer up to 0x55 bytes
     s.write(b'\x04')
-
-    s.write(bytearray([addr >> 24, addr >> 16, addr >> 8, addr >> 0]))
+    s.write(struct.pack('>I', addr))
 
     if data is None:
         # Read command
-        d = s.read(4)
-        data = (d[0] << 24) | (d[1] << 16) | (d[2] << 8) | (d[3] << 0)
+        data = struct.unpack('>I', s.read(4))[0]
 
     else:
         # Write command
-        s.write(bytearray([data >> 24, data >> 16, data >> 8, data >> 0]))
+        s.write(struct.pack('>I', data))
         d = s.read(1)
-        if d != 0x00:
-            raise WishboneError("invalid ack byte received")
+        if d[0] != 0x00:
+            raise WishboneError(f"invalid ack byte received: 0x{d[0]:02x}")
         data = None
 
     s.close()
@@ -49,9 +48,9 @@ def main():
         help='value to write, or if absent, a read operation is done')
     args = parser.parse_args()
 
-    byte = wishbone_serial(args.serial[0], args.address[0], args.value)
-    if (byte) is not none:
-        print(f'0x{byte:08x}')
+    data = wishbone_serial(args.serial[0], args.address[0], args.value)
+    if data is not None:
+        print(f'0x{data:08x}')
 
 
 if __name__ == "__main__":
