@@ -14,28 +14,31 @@
 
 import rclpy
 from rclpy.node import Node
-
 from std_msgs.msg import String
+
+from pico_ice import wishbone_serial
+
+
+tty = '/dev/ttyACM1'
 
 
 class PicoIceSubscriber(Node):
 
-    def __init__(self):
+    def __init__(self, addr):
         super().__init__('pico_ice_subscriber')
+        self.addr = addr
         self.subscription = self.create_subscription(
-            String,
-            'topic',
-            self.listener_callback,
-            10)
+            String, 'topic', self.listener_callback, 10)
         self.subscription  # prevent unused variable warning
 
     def listener_callback(self, msg):
         self.get_logger().info('I heard: "%s"' % msg.data)
+        wishbone_serial.write(tty, self.addr, int(msg.data))
 
 
 def main(args=None):
     rclpy.init(args=args)
-    pico_ice_subscriber = PicoIceSubscriber()
+    pico_ice_subscriber = PicoIceSubscriber(0x1001)
     rclpy.spin(pico_ice_subscriber)
     rclpy.shutdown()
 
