@@ -1,5 +1,8 @@
 build
+install
+log
 __pycache__
 
 *.vcd
 *.gtkw
+*.swp
