@@ -14,6 +14,6 @@ And then run the following to start it:
 
 ```
 . install/setup.sh
-ros2 run pico_ice talker # for receiving messages
-ros2 run pico_ice listener # for sending messages
+ros2 run pico_ice talker # for sending messages to ROS2
+ros2 run pico_ice listener # for receiving messages from ROS2
 ```

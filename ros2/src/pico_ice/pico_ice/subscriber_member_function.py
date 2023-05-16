@@ -14,7 +14,8 @@
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+from sensor_msgs.msg import Imu
 
 from pico_ice import wishbone_serial
 
@@ -27,14 +28,19 @@ class PicoIceSubscriber(Node):
     def __init__(self, addr):
         super().__init__('pico_ice_subscriber')
         self.addr = addr
+        qos = QoSProfile(
+            depth=10,
+            durability=DurabilityPolicy.SYSTEM_DEFAULT,
+            reliability=ReliabilityPolicy.SYSTEM_DEFAULT
+        )
         self.subscription = self.create_subscription(
-            String, 'topic', self.listener_callback, 10)
+            Imu, '/imu', self.listener_callback, qos)
         self.subscription  # prevent unused variable warning
 
-    def listener_callback(self, msg):
-        self.get_logger().info('I heard: "%s"' % msg.data)
-        wishbone_serial.write(tty, self.addr, int(msg.data))
-
+    def listener_callback(self, imu):
+        print(imu)
+        self.get_logger().info(f'{imu}')
+        #wishbone_serial.write(tty, self.addr, imu)
 
 def main(args=None):
     rclpy.init(args=args)
