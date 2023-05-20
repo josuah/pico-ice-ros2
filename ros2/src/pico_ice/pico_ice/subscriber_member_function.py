@@ -25,9 +25,8 @@ tty = '/dev/ttyACM1'
 
 class PicoIceSubscriber(Node):
 
-    def __init__(self, addr):
+    def __init__(self):
         super().__init__('pico_ice_subscriber')
-        self.addr = addr
         qos = QoSProfile(
             depth=10,
             durability=DurabilityPolicy.SYSTEM_DEFAULT,
@@ -38,13 +37,14 @@ class PicoIceSubscriber(Node):
         self.subscription  # prevent unused variable warning
 
     def listener_callback(self, imu):
-        print(imu)
-        self.get_logger().info(f'{imu}')
-        #wishbone_serial.write(tty, self.addr, imu)
+        self.get_logger().info(f'({imu.orientation.x},{imu.orientation.z},{imu.orientation.z})')
+        wishbone_serial.write(tty, 0x1000, 1000 * int(imu.orientation.x))
+        wishbone_serial.write(tty, 0x1001, 1000 * int(imu.orientation.y))
+        wishbone_serial.write(tty, 0x1002, 1000 * int(imu.orientation.z))
 
 def main(args=None):
     rclpy.init(args=args)
-    pico_ice_subscriber = PicoIceSubscriber(0x1001)
+    pico_ice_subscriber = PicoIceSubscriber()
     rclpy.spin(pico_ice_subscriber)
     rclpy.shutdown()
 
